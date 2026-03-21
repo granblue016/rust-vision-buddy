@@ -2,13 +2,13 @@ mod config;
 mod modules;
 mod shared;
 
+use axum::http::{header, HeaderValue, Method};
 use axum::Router;
-use axum::http::{HeaderValue, Method};
 use config::settings::Settings;
-use modules::{ai, auth, content_generation, health, scoring};
+use modules::{ai, auth, content_generation, cv, health, scoring};
 use shared::{app_state::AppState, database};
 use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tracing::{error, info};
 
 #[tokio::main]
@@ -21,8 +21,8 @@ async fn main() {
     let settings = Settings::from_env().expect("failed to load settings");
     let host = settings.backend_host.clone();
     let port = settings.backend_port;
-    
-    // Initialize database connection pool
+
+    // Khởi tạo kết nối Database
     info!("Connecting to database...");
     let db_pool = match database::create_pool(&settings.database_url).await {
         Ok(pool) => {
@@ -31,56 +31,49 @@ async fn main() {
         }
         Err(err) => {
             error!("Failed to create database pool: {}", err);
-            error!("Please ensure PostgreSQL is running and DATABASE_URL is correct");
             std::process::exit(1);
         }
     };
-    
-    // Run database migrations
+
+    // Chạy migrations để đảm bảo bảng 'cvs' tồn tại
     info!("Running database migrations...");
     if let Err(err) = database::run_migrations(&db_pool).await {
         error!("Failed to run database migrations: {}", err);
         std::process::exit(1);
     }
-    
-    // Initialize templates
+
+    // Khởi tạo engine tạo nội dung
     if let Err(e) = content_generation::template_engine::init_templates() {
         error!("Failed to initialize templates: {}", e);
         std::process::exit(1);
     }
-    info!("Templates initialized successfully");
-    
-    let state = AppState::new(settings, db_pool);
-    
-    // Build CORS allowed origins
-    let mut allowed_origins = vec![
-        HeaderValue::from_static("http://localhost:8080"),
-        HeaderValue::from_static("http://127.0.0.1:8080"),
-        HeaderValue::from_static("http://localhost:5173"),
-        HeaderValue::from_static("http://127.0.0.1:5173"),
-        HeaderValue::from_static("http://localhost:5174"),
-        HeaderValue::from_static("http://127.0.0.1:5174"),
-    ];
-    
-    // Add production frontend URL from environment
-    let frontend_url = &state.settings.frontend_url;
-    if !frontend_url.starts_with("http://localhost") && !frontend_url.starts_with("http://127.0.0.1") {
-        if let Ok(origin) = HeaderValue::from_str(frontend_url) {
-            info!("Adding production frontend origin: {}", frontend_url);
-            allowed_origins.push(origin);
-        }
-    }
-    
-    let cors = CorsLayer::new()
-        .allow_origin(allowed_origins)
-        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-        .allow_headers(Any);
 
+    let state = AppState::new(settings, db_pool);
+
+    // Cấu hình CORS chi tiết để tránh lỗi chặn trình duyệt
+    let cors = CorsLayer::new()
+        .allow_origin([
+            "http://localhost:8080".parse::<HeaderValue>().unwrap(),
+            "http://127.0.0.1:8080".parse::<HeaderValue>().unwrap(),
+            "http://localhost:5173".parse::<HeaderValue>().unwrap(),
+        ])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT]);
+
+    // Build Router và gộp module CV
     let app = Router::new()
         .nest("/api/v1/auth", auth::routes())
         .nest("/api/v1/ai", ai::routes())
         .nest("/api/v1/scoring", scoring::routes())
         .nest("/api/v1/content", content_generation::routes())
+        // Route này khớp với API_URL trong cvService.ts
+        .nest("/api/v1/cv", cv::routes())
         .merge(health::routes())
         .layer(cors)
         .with_state(state);
@@ -89,23 +82,14 @@ async fn main() {
         .parse()
         .expect("invalid BACKEND_HOST/BACKEND_PORT");
 
-    let listener = match tokio::net::TcpListener::bind(addr).await {
-        Ok(listener) => listener,
-        Err(err) => {
-            error!(
-                "failed to bind {}: {}. Another backend process may already be running on this port.",
-                addr, err
-            );
-            error!(
-                "Stop the existing process or change BACKEND_PORT in backend/.env, then retry."
-            );
-            return;
-        }
-    };
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .unwrap_or_else(|err| {
+            error!("Could not bind to {}: {}", addr, err);
+            std::process::exit(1);
+        });
 
-    info!("backend listening on http://{}", addr);
+    info!("🚀 Backend listening on http://{}", addr);
 
-    if let Err(err) = axum::serve(listener, app).await {
-        error!("failed to start backend server: {}", err);
-    }
+    axum::serve(listener, app).await.unwrap();
 }

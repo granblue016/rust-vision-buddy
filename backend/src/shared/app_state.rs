@@ -1,6 +1,10 @@
 use crate::config::settings::Settings;
-use std::{collections::HashMap, sync::Arc, time::{Duration, Instant}};
 use sqlx::PgPool;
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::sync::RwLock;
 
 #[derive(Clone)]
@@ -21,7 +25,12 @@ impl AppState {
     pub fn new(settings: Settings, db: PgPool) -> Self {
         Self {
             settings,
-            http: reqwest::Client::new(),
+            // Cập nhật: Thêm timeout mặc định cho HTTP client
+            // Điều này cực kỳ quan trọng khi gọi API AI (Gemini) để tránh việc ứng dụng bị treo nếu mạng lag
+            http: reqwest::Client::builder()
+                .timeout(Duration::from_secs(30))
+                .build()
+                .expect("failed to create http client"),
             db,
             oauth_states: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -29,7 +38,7 @@ impl AppState {
 
     pub async fn store_oauth_state(&self, state: String, frontend_url: String) {
         let mut states = self.oauth_states.write().await;
-        // Keep memory bounded by removing expired entries before adding a new one.
+        // Giữ bộ nhớ gọn gàng bằng cách loại bỏ các entry đã hết hạn trước khi thêm mới
         let now = Instant::now();
         states.retain(|_, data| now.duration_since(data.created) <= Duration::from_secs(600));
         states.insert(
