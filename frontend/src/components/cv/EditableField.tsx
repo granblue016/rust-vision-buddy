@@ -4,6 +4,7 @@ import React, {
   useRef,
   ChangeEvent,
   KeyboardEvent,
+  useCallback,
 } from "react";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +14,6 @@ interface EditableFieldProps {
   placeholder?: string;
   className?: string;
   isTextArea?: boolean;
-  // CSSProperties giúp nhận style={{ color: primary_color }} từ EditorPage
   style?: React.CSSProperties;
 }
 
@@ -28,41 +28,43 @@ const EditableField = ({
   const [isEditing, setIsEditing] = useState(false);
   const [currentValue, setCurrentValue] = useState(value);
 
-  // Khởi tạo ref với null và định nghĩa type rõ ràng để tránh lỗi TS2322
   const inputRef = useRef<HTMLInputElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Cập nhật giá trị nội bộ khi giá trị từ store thay đổi
+  // Cập nhật giá trị nội bộ khi props 'value' thay đổi (ví dụ: từ AI hoặc Database)
   useEffect(() => {
     setCurrentValue(value);
   }, [value]);
 
-  // Tự động focus khi vào chế độ chỉnh sửa
+  // Xử lý Focus và đưa con trỏ xuống cuối văn bản
   useEffect(() => {
     if (isEditing) {
-      if (isTextArea) {
-        textAreaRef.current?.focus();
-      } else {
-        inputRef.current?.focus();
+      if (isTextArea && textAreaRef.current) {
+        textAreaRef.current.focus();
+        const length = textAreaRef.current.value.length;
+        textAreaRef.current.setSelectionRange(length, length);
+      } else if (inputRef.current) {
+        inputRef.current.focus();
       }
     }
-  }, [isEditing, isTextArea]);
+  }, [isEditing, isTextArea]); // Đã loại bỏ currentValue.length để tránh re-run thừa
 
-  const handleBlur = () => {
+  const handleBlur = useCallback(() => {
     setIsEditing(false);
-    if (currentValue !== value) {
+    if (currentValue.trim() !== value.trim()) {
       onSave(currentValue);
     }
-  };
+  }, [currentValue, value, onSave]);
 
   const handleKeyDown = (
     e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    // Nhấn Enter để lưu (chỉ áp dụng cho input dòng đơn)
+    // Nếu là input bình thường, nhấn Enter là lưu
     if (e.key === "Enter" && !isTextArea) {
+      e.preventDefault();
       handleBlur();
     }
-    // Nhấn Escape để hủy thay đổi
+    // Nếu là Escape, hủy bỏ thay đổi
     if (e.key === "Escape") {
       setCurrentValue(value);
       setIsEditing(false);
@@ -75,7 +77,6 @@ const EditableField = ({
     setCurrentValue(e.target.value);
   };
 
-  // Nếu đang trong chế độ Edit
   if (isEditing) {
     const commonProps = {
       value: currentValue,
@@ -83,42 +84,49 @@ const EditableField = ({
       onBlur: handleBlur,
       onKeyDown: handleKeyDown,
       placeholder: placeholder,
-      style: style, // Áp dụng màu sắc ngay cả khi đang gõ
       className: cn(
-        "w-full bg-slate-50 border-2 border-indigo-400 rounded px-1 outline-none transition-all shadow-inner",
+        "w-full bg-indigo-50/50 border-b-2 border-indigo-500 px-1 outline-none transition-all",
         className,
       ),
+      style: style,
     };
 
     return isTextArea ? (
       <textarea
         {...commonProps}
         ref={textAreaRef}
-        rows={4}
-        className={cn(commonProps.className, "resize-none leading-relaxed")}
+        rows={3}
+        className={cn(
+          commonProps.className,
+          "resize-none leading-relaxed block",
+        )}
       />
     ) : (
       <input
         {...commonProps}
         ref={inputRef}
         type="text"
-        className={cn(commonProps.className, "h-fit")}
+        className={cn(commonProps.className, "h-auto block")}
       />
     );
   }
 
-  // Chế độ hiển thị (View Mode)
   return (
     <div
       onClick={() => setIsEditing(true)}
       style={style}
       className={cn(
-        "cursor-text hover:bg-slate-100/50 rounded px-1 py-0.5 transition-colors min-h-[1.5em] w-full",
-        !value && "text-slate-300 italic font-normal", // Làm mờ placeholder nếu không có value
+        "cursor-text hover:bg-indigo-50/30 rounded px-1 transition-all relative group/field min-h-[1.5em] flex items-center",
+        !value && "text-slate-300 italic font-normal",
         className,
       )}
     >
-      {value || placeholder}
+      <span className="break-words w-full">{value || placeholder}</span>
+
+      {/* Badge "Edit" thông minh: Chỉ hiện trên màn hình có chuột (hover) */}
+      <span className="absolute -right-8 top-1/2 -translate-y-1/2 opacity-0 group-hover/field:opacity-100 text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded uppercase font-bold transition-all pointer-events-none">
+        Edit
+      </span>
     </div>
   );
 };

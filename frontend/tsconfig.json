@@ -1,24 +1,33 @@
 {
   "compilerOptions": {
-    "allowJs": true,
-    "noImplicitAny": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "paths": {
-      "@/*": [
-        "./src/*"
-      ]
-    },
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": false,
     "skipLibCheck": true,
-    "strictNullChecks": false
-  },
-  "files": [],
-  "references": [
-    {
-      "path": "./tsconfig.app.json"
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      /* Bỏ dấu ./ ở đầu để khớp với cấu hình Vite thông thường */
+      "@/*": ["src/*"],
     },
-    {
-      "path": "./tsconfig.node.json"
-    }
-  ]
+    "types": ["node", "vite/client", "vitest/globals"],
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.d.ts",
+    "vite.config.ts",
+    "tailwind.config.ts",
+  ],
+  "exclude": ["node_modules"],
 }

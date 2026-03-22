@@ -1,132 +1,78 @@
 import { create } from "zustand";
-import { CvLayoutData, CvSection, CvSectionItem, CvTheme } from "@/types/cv";
+import {
+  CvLayoutData,
+  CvSection,
+  CvItem,
+  CvTheme,
+  DEFAULT_CV_DATA,
+} from "../types/cv"; // Sử dụng đường dẫn tương đối để tránh lỗi Alias @/
+import { cvService } from "../services/cvService";
 
-// Định nghĩa trạng thái của Store
+// Interface cho lỗi để tránh dùng 'any'
+interface StoreError {
+  message: string;
+}
+
 interface CvStoreState {
+  currentCvId: string | null;
   data: CvLayoutData;
   isSaving: boolean;
+  isLoading: boolean;
   lastSaved: Date | null;
+  error: string | null;
 
-  // Hành động với toàn bộ dữ liệu
+  // Actions đồng bộ với API
+  fetchCv: (id: string) => Promise<void>;
+  saveChanges: () => Promise<void>;
+  setIsSaving: (val: boolean) => void;
+  markSaved: () => void;
   setInitialData: (data: CvLayoutData) => void;
-  setTemplateId: (id: string) => void;
-  updateTheme: (theme: Partial<CvTheme>) => void;
 
-  // Hành động với Section
-  reorderSections: (startIndex: number, endIndex: number) => void;
+  // Actions chỉnh sửa giao diện và dữ liệu
+  updateTheme: (newTheme: Partial<CvTheme>) => void;
   toggleSectionVisibility: (sectionId: string) => void;
-  updateSectionTitle: (sectionId: string, title: string) => void;
-
-  // Hành động với Item
   updateItemField: (
     sectionId: string,
     itemId: string,
-    field: keyof CvSectionItem,
+    field: keyof CvItem,
     value: string,
   ) => void;
   addItem: (sectionId: string, type: CvSection["type"]) => void;
   removeItem: (sectionId: string, itemId: string) => void;
-  reorderItems: (
-    sectionId: string,
-    startIndex: number,
-    endIndex: number,
-  ) => void;
-
-  // Trạng thái hệ thống
-  setIsSaving: (v: boolean) => void;
-  markSaved: () => void;
+  reorderSections: (startIndex: number, endIndex: number) => void;
 }
 
-const DEFAULT_THEME: CvTheme = {
-  font_family: "Inter",
-  font_size: "14px",
-  line_height: 1.5,
-  primary_color: "#2563eb",
-};
+// Helper tạo ID cho item mới
+const generateId = () => Math.random().toString(36).substring(2, 11);
 
-const DEFAULT_DATA: CvLayoutData = {
-  template_id: "modern-01",
-  theme: DEFAULT_THEME,
-  sections: [
-    {
-      id: "personal_info",
-      type: "personal_info",
-      title: "Thông tin cá nhân",
-      visible: true,
-      items: [
-        {
-          id: "pi-1",
-          title: "HỌ VÀ TÊN",
-          subtitle: "Vị trí ứng tuyển",
-          description: "email@example.com",
-          date: "0912 345 678",
-        },
-      ],
-    },
-    {
-      id: "experience",
-      type: "experience",
-      title: "Kinh nghiệm làm việc",
-      visible: true,
-      items: [],
-    },
-    {
-      id: "education",
-      type: "education",
-      title: "Học vấn",
-      visible: true,
-      items: [],
-    },
-    {
-      id: "skills",
-      type: "skills",
-      title: "Kỹ năng",
-      visible: true,
-      items: [],
-    },
-  ],
-};
-
-// Hàm helper tạo ID ngẫu nhiên an toàn hơn crypto.randomUUID() trong một số môi trường dev
-const generateId = () => {
-  if (
-    typeof window !== "undefined" &&
-    window.crypto &&
-    window.crypto.randomUUID
-  ) {
-    return window.crypto.randomUUID();
-  }
-  return Math.random().toString(36).substring(2, 11);
-};
-
-export const useCvStore = create<CvStoreState>((set) => ({
-  data: DEFAULT_DATA,
+export const useCvStore = create<CvStoreState>((set, get) => ({
+  currentCvId: null,
+  data: DEFAULT_CV_DATA, // Hiển thị dữ liệu mẫu ngay khi chưa load xong API
   isSaving: false,
+  isLoading: false,
   lastSaved: null,
+  error: null,
 
-  setInitialData: (data) => set({ data }),
+  setInitialData: (data) => set({ data, isLoading: false }),
+  setIsSaving: (val) => set({ isSaving: val }),
 
-  setTemplateId: (id) =>
-    set((state) => ({
-      data: { ...state.data, template_id: id },
-    })),
+  markSaved: () =>
+    set({
+      isSaving: false,
+      lastSaved: new Date(),
+      error: null,
+    }),
 
-  updateTheme: (themeUpdate) =>
+  // Cập nhật màu sắc/theme cho CV
+  updateTheme: (newTheme) =>
     set((state) => ({
       data: {
         ...state.data,
-        theme: { ...state.data.theme, ...themeUpdate },
+        theme: { ...state.data.theme, ...newTheme },
       },
     })),
 
-  reorderSections: (startIndex, endIndex) =>
-    set((state) => {
-      const sections = [...state.data.sections];
-      const [removed] = sections.splice(startIndex, 1);
-      sections.splice(endIndex, 0, removed);
-      return { data: { ...state.data, sections } };
-    }),
-
+  // Ẩn/Hiện một mục trong CV
   toggleSectionVisibility: (sectionId) =>
     set((state) => ({
       data: {
@@ -137,74 +83,56 @@ export const useCvStore = create<CvStoreState>((set) => ({
       },
     })),
 
-  updateSectionTitle: (sectionId, title) =>
-    set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId ? { ...s, title } : s,
-        ),
-      },
-    })),
+  fetchCv: async (id) => {
+    set({ isLoading: true, error: null, currentCvId: id });
+    try {
+      const cv = await cvService.getById(id);
+      set({ data: cv.layout_data, isLoading: false });
+    } catch (err) {
+      const error = err as StoreError;
+      set({ error: error.message || "Lỗi tải CV", isLoading: false });
+    }
+  },
+
+  saveChanges: async () => {
+    const { currentCvId, data } = get();
+    if (!currentCvId) return;
+    set({ isSaving: true });
+    try {
+      await cvService.update(currentCvId, { layout_data: data });
+      set({ isSaving: false, lastSaved: new Date() });
+    } catch (err) {
+      const error = err as StoreError;
+      set({ isSaving: false, error: error.message });
+    }
+  },
 
   updateItemField: (sectionId, itemId, field, value) =>
     set((state) => ({
       data: {
         ...state.data,
-        sections: state.data.sections.map((section) => {
-          if (section.id !== sectionId) return section;
-          return {
-            ...section,
-            items: section.items.map((item) =>
-              item.id === itemId ? { ...item, [field]: value } : item,
-            ),
-          };
-        }),
+        sections: state.data.sections.map((s) =>
+          s.id === sectionId
+            ? {
+                ...s,
+                items: s.items.map((i) =>
+                  i.id === itemId ? { ...i, [field]: value } : i,
+                ),
+              }
+            : s,
+        ),
       },
     })),
 
   addItem: (sectionId, type) =>
     set((state) => {
-      // Khởi tạo item với ID duy nhất
-      const id = generateId();
-
-      let newItem: CvSectionItem = {
-        id,
-        title: "Tiêu đề mới",
+      const newItem: CvItem = {
+        id: generateId(),
+        title: type === "experience" ? "Vị trí mới" : "Tiêu đề mới",
         subtitle: "",
-        date: "",
+        date: "2024 - Hiện tại",
         description: "",
       };
-
-      // Đổ dữ liệu mẫu (Boilerplate) tùy theo loại section
-      switch (type) {
-        case "experience":
-          newItem = {
-            ...newItem,
-            title: "Vị trí công việc",
-            subtitle: "Tên công ty / Tổ chức",
-            date: "Tháng/Năm - Hiện tại",
-            description: "Mô tả chi tiết nhiệm vụ và thành quả...",
-          };
-          break;
-        case "education":
-          newItem = {
-            ...newItem,
-            title: "Ngành học / Khóa học",
-            subtitle: "Tên trường / Trung tâm",
-            date: "2020 - 2024",
-            description: "GPA: 3.5/4.0 hoặc các chứng chỉ liên quan...",
-          };
-          break;
-        case "skills":
-          newItem = {
-            ...newItem,
-            title: "Tên kỹ năng",
-            description: "Mô tả công cụ hoặc mức độ thành thạo...",
-          };
-          break;
-      }
-
       return {
         data: {
           ...state.data,
@@ -227,18 +155,11 @@ export const useCvStore = create<CvStoreState>((set) => ({
       },
     })),
 
-  reorderItems: (sectionId, startIndex, endIndex) =>
+  reorderSections: (startIndex, endIndex) =>
     set((state) => {
-      const updatedSections = state.data.sections.map((section) => {
-        if (section.id !== sectionId) return section;
-        const newItems = [...section.items];
-        const [removed] = newItems.splice(startIndex, 1);
-        newItems.splice(endIndex, 0, removed);
-        return { ...section, items: newItems };
-      });
-      return { data: { ...state.data, sections: updatedSections } };
+      const sections = [...state.data.sections];
+      const [removed] = sections.splice(startIndex, 1);
+      sections.splice(endIndex, 0, removed);
+      return { data: { ...state.data, sections } };
     }),
-
-  setIsSaving: (v) => set({ isSaving: v }),
-  markSaved: () => set({ isSaving: false, lastSaved: new Date() }),
 }));

@@ -1,9 +1,13 @@
 import type { Config } from "tailwindcss";
+import animatePlugin from "tailwindcss-animate";
 
-export default {
+const config: Config = {
+  // Kích hoạt chế độ Dark Mode dựa trên class .dark trong index.css
   darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
-  prefix: "",
+
+  // Quan trọng: Chỉ định rõ các file Tailwind cần quét để áp dụng màu
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+
   theme: {
     container: {
       center: true,
@@ -13,10 +17,7 @@ export default {
       },
     },
     extend: {
-      fontFamily: {
-        display: ['Space Grotesk', 'sans-serif'],
-        body: ['Inter', 'sans-serif'],
-      },
+      // Kết nối các biến HSL từ :root trong index.css vào Tailwind
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -51,28 +52,16 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Màu sắc đặc trưng cho CVGenius
         cta: {
           DEFAULT: "hsl(var(--cta))",
           foreground: "hsl(var(--cta-foreground))",
-        },
-        success: {
-          DEFAULT: "hsl(var(--success))",
-          foreground: "hsl(var(--success-foreground))",
+          hover: "hsl(var(--cta-hover))",
         },
         score: {
-          high: "hsl(var(--score-high))",
-          mid: "hsl(var(--score-mid))",
           low: "hsl(var(--score-low))",
-        },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
+          mid: "hsl(var(--score-mid))",
+          high: "hsl(var(--score-high))",
         },
       },
       borderRadius: {
@@ -80,31 +69,15 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
-        },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
-        },
-        "float": {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-10px)" },
-        },
-        "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--cta) / 0.4)" },
-          "50%": { boxShadow: "0 0 0 12px hsl(var(--cta) / 0)" },
-        },
-      },
-      animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-        "float": "float 3s ease-in-out infinite",
-        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+      // Thêm font chữ từ index.css
+      fontFamily: {
+        display: ["var(--font-display)", "sans-serif"],
+        body: ["var(--font-body)", "sans-serif"],
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
-} satisfies Config;
+  // Sử dụng plugin animate đã cài đặt thành công trước đó
+  plugins: [animatePlugin],
+};
+
+export default config;
