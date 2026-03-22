@@ -45,10 +45,8 @@ const App = () => (
 
               {/* --- Protected Routes --- */}
               <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<Index />} />
-
-                {/* Đã thay thế EditorPlaceholder bằng EditorPage thực thụ */}
-                <Route path="/editor/:id" element={<EditorPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/editor/:id" element={<CvEditorPage />} />
 
                 <Route path="/solution" element={<SolutionPage />} />
                 <Route path="/write-mail" element={<WriteMailPage />} />
