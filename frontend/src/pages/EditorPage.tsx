@@ -1,270 +1,378 @@
-import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useEffect, useCallback, useRef } from "react";
+import { useParams } from "react-router-dom";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { useCvStore } from "@/stores/useCvStore";
 import { cvService } from "@/services/cvService";
-import { Cv, CvSection, CvSectionItem } from "@/types/cv";
+import SortableSection from "@/components/cv/SortableSection";
+import EditableField from "@/components/cv/EditableField";
 import { toast } from "sonner";
-import { v4 as uuidv4 } from "uuid"; // Hãy đảm bảo bạn đã cài: npm install uuid @types/uuid
+import { cn } from "@/lib/utils"; // Sửa lỗi: Cannot find name 'cn'
+import {
+  Loader2,
+  Save,
+  Palette,
+  Eye,
+  EyeOff, // Sửa lỗi: Cannot find name 'EyeOff'
+  Mail,
+  Phone,
+  Layout,
+} from "lucide-react";
 
 const EditorPage = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [cv, setCv] = useState<Cv | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const {
+    data,
+    isSaving,
+    setInitialData,
+    reorderSections,
+    toggleSectionVisibility,
+    updateItemField,
+    addItem,
+    setIsSaving,
+    markSaved,
+    updateTheme,
+  } = useCvStore();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
+  // 1. Load dữ liệu ban đầu
   useEffect(() => {
-    const loadCvData = async () => {
+    const loadData = async () => {
+      if (!id) return;
       try {
-        if (id) {
-          const data = await cvService.getById(id);
-          setCv(data);
-        }
-      } catch (err) {
-        setError("Không thể tải cấu hình CV.");
-      } finally {
-        setLoading(false);
+        const cv = await cvService.getById(id);
+        setInitialData(cv.layout_data);
+      } catch (error) {
+        console.error("Fetch error:", error);
+        toast.error(
+          "Không thể tải CV. Vui lòng kiểm tra Backend Rust (Port 9000)",
+        );
       }
     };
-    loadCvData();
-  }, [id]);
+    loadData();
+  }, [id, setInitialData]);
 
-  // --- Logic Xử lý Nội dung ---
-
-  const handleAddSection = (type: CvSection["type"]) => {
-    if (!cv) return;
-    const newSection: CvSection = {
-      id: uuidv4(),
-      type: type,
-      title: type === "experience" ? "Kinh nghiệm làm việc" : "Học vấn",
-      items: [
-        {
-          id: uuidv4(),
-          title: "Tiêu đề mới",
-          subtitle: "Tên công ty / Trường học",
-          date: "2024 - Hiện tại",
-          description: "Mô tả chi tiết nội dung...",
-        },
-      ],
-    };
-
-    setCv({
-      ...cv,
-      layout_data: {
-        ...cv.layout_data,
-        sections: [...cv.layout_data.sections, newSection],
-      },
-    });
-    toast.info(`Đã thêm mục ${newSection.title}`);
-  };
-
-  const handleUpdateSectionItem = (
-    sectionId: string,
-    itemId: string,
-    field: keyof CvSectionItem,
-    value: string,
-  ) => {
-    if (!cv) return;
-    const updatedSections = cv.layout_data.sections.map((section) => {
-      if (section.id === sectionId) {
-        return {
-          ...section,
-          items: section.items.map((item) =>
-            item.id === itemId ? { ...item, [field]: value } : item,
-          ),
-        };
-      }
-      return section;
-    });
-
-    setCv({
-      ...cv,
-      layout_data: { ...cv.layout_data, sections: updatedSections },
-    });
-  };
-
-  const handleSave = async () => {
-    if (!cv || !id) return;
-    setSaving(true);
+  // 2. Hàm Lưu dữ liệu
+  const handleSave = useCallback(async () => {
+    if (!id || !data) return false;
+    setIsSaving(true);
     try {
       await cvService.update(id, {
-        name: cv.name,
-        layout_data: cv.layout_data,
+        name: "Career Compass CV",
+        layout_data: data,
       });
-      toast.success("Lưu dữ liệu thành công!");
-      navigate("/dashboard");
-    } catch (err) {
-      toast.error("Lỗi khi lưu dữ liệu.");
+      markSaved();
+      return true;
+    } catch (error) {
+      console.error("Save error:", error);
+      toast.error("Lỗi đồng bộ dữ liệu với máy chủ.");
+      return false;
     } finally {
-      setSaving(false);
+      setIsSaving(false);
+    }
+  }, [id, data, setIsSaving, markSaved]);
+
+  // 3. Cơ chế Auto-save
+  useEffect(() => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+    if (data) {
+      saveTimeoutRef.current = setTimeout(() => {
+        handleSave();
+      }, 3000);
+    }
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [data, handleSave]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = data.sections.findIndex((s) => s.id === active.id);
+      const newIndex = data.sections.findIndex((s) => s.id === over.id);
+      reorderSections(oldIndex, newIndex);
     }
   };
 
-  if (loading) return <div className="text-center p-20">Đang tải...</div>;
-  if (error || !cv)
-    return <div className="text-center p-20 text-red-500">{error}</div>;
+  // Kiểm tra data trước khi render nội dung chính
+  if (!data || !data.sections) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-slate-50 gap-3">
+        <Loader2 className="animate-spin text-indigo-600" size={40} />
+        <p className="text-slate-500 animate-pulse font-medium">
+          Đang tải bản thiết kế...
+        </p>
+      </div>
+    );
+  }
+
+  const headerSection = data.sections.find((s) => s.type === "header");
+  const sortableSections = data.sections.filter((s) => s.type !== "header");
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <header className="max-w-7xl mx-auto flex justify-between items-center mb-8 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-        <div className="flex-1 mr-4">
-          <input
-            type="text"
-            value={cv.name}
-            onChange={(e) => setCv({ ...cv, name: e.target.value })}
-            className="text-xl font-bold text-slate-900 bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none w-full"
-          />
+    <div className="h-screen bg-slate-100 flex flex-col overflow-hidden text-slate-900">
+      {/* Header Bar */}
+      <header className="h-16 bg-white border-b px-6 flex justify-between items-center z-50 shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="bg-indigo-600 p-1.5 rounded-lg text-white shadow-indigo-200 shadow-lg">
+            <Layout size={18} />
+          </div>
+          <span className="font-bold text-slate-800 tracking-tight">
+            Career Compass <span className="text-indigo-600">Editor</span>
+          </span>
+          {isSaving && (
+            <span className="text-[10px] text-slate-400 ml-4 italic flex items-center gap-1">
+              <Loader2 size={10} className="animate-spin" /> Đang tự động lưu...
+            </span>
+          )}
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md disabled:bg-indigo-300"
-          >
-            {saving ? "Đang lưu..." : "Lưu & Thoát"}
-          </button>
-        </div>
+
+        <button
+          onClick={() => {
+            handleSave().then(
+              (success) => success && toast.success("Đã lưu thành công!"),
+            );
+          }}
+          disabled={isSaving}
+          className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2 rounded-full hover:bg-black transition-all disabled:opacity-50 text-sm font-medium shadow-md"
+        >
+          <Save size={14} /> Lưu ngay
+        </button>
       </header>
 
-      <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Cột trái: LIVE PREVIEW JSON */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 sticky top-6 self-start">
-          <h2 className="text-lg font-semibold mb-4 border-b pb-2 flex justify-between">
-            Dữ liệu CV (Real-time)
-            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded">
-              LIVE
-            </span>
-          </h2>
-          <div className="bg-slate-900 rounded-lg p-4 overflow-auto max-h-[600px]">
-            <pre className="text-blue-400 text-[11px] font-mono leading-relaxed">
-              {JSON.stringify(cv.layout_data, null, 2)}
-            </pre>
-          </div>
-        </div>
+      <main className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside className="w-64 bg-white border-r flex flex-col shadow-inner overflow-y-auto">
+          <div className="p-6 space-y-8">
+            <div>
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Palette size={12} /> Màu sắc chủ đạo
+              </h4>
+              <div className="grid grid-cols-5 gap-2">
+                {["#2563eb", "#10b981", "#ef4444", "#0f172a", "#7c3aed"].map(
+                  (color) => (
+                    <button
+                      key={color}
+                      onClick={() => updateTheme({ primary_color: color })}
+                      className={cn(
+                        "size-7 rounded-full transition-transform hover:scale-110 border-2",
+                        data.theme.primary_color === color
+                          ? "border-slate-900 scale-110 shadow-sm"
+                          : "border-transparent",
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  ),
+                )}
+              </div>
+            </div>
 
-        {/* Cột phải: CONTENT EDITOR */}
-        <div className="space-y-6">
-          <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold mb-4">Cấu trúc nội dung</h2>
-
-            {cv.layout_data.sections.map((section) => (
-              <div
-                key={section.id}
-                className="mb-8 p-4 border border-slate-100 rounded-lg bg-slate-50/50"
-              >
-                <div className="flex justify-between items-center mb-4">
-                  <span className="font-bold text-indigo-600 uppercase text-xs tracking-wider">
-                    {section.title}
-                  </span>
-                </div>
-
-                {section.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="space-y-3 bg-white p-4 rounded-md shadow-sm border border-slate-200 mb-3"
+            <div>
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
+                Cấu trúc các mục
+              </h4>
+              <div className="space-y-1">
+                {data.sections.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => toggleSectionVisibility(s.id)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-2 rounded-md text-xs transition-colors",
+                      s.visible
+                        ? "text-slate-700 hover:bg-slate-100 font-medium"
+                        : "text-slate-300 bg-slate-50/50 italic",
+                    )}
                   >
-                    <input
-                      type="text"
-                      placeholder="Tiêu đề (Vị trí/Chức danh)"
+                    <span className="truncate pr-2">{s.title}</span>
+                    {s.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* CV Canvas */}
+        <section className="flex-1 overflow-y-auto p-8 flex justify-center scroll-smooth bg-slate-200/50 shadow-inner">
+          <div
+            className="bg-white shadow-2xl w-[210mm] min-h-[297mm] p-[15mm] border border-slate-300 relative transition-all duration-500"
+            style={{ fontFamily: data.theme.font_family }}
+          >
+            {/* Header Section */}
+            {headerSection && headerSection.visible && (
+              <div
+                className="mb-10 text-center border-b-4 pb-8"
+                style={{ borderColor: data.theme.primary_color }}
+              >
+                {headerSection.items.map((item) => (
+                  <div key={item.id} className="space-y-2">
+                    <EditableField
                       value={item.title}
-                      onChange={(e) =>
-                        handleUpdateSectionItem(
-                          section.id,
+                      onSave={(val) =>
+                        updateItemField(headerSection.id, item.id, "title", val)
+                      }
+                      className="text-4xl font-black text-slate-900 uppercase tracking-tight"
+                      placeholder="HỌ VÀ TÊN"
+                    />
+                    <EditableField
+                      value={item.subtitle || ""}
+                      onSave={(val) =>
+                        updateItemField(
+                          headerSection.id,
                           item.id,
-                          "title",
-                          e.target.value,
+                          "subtitle",
+                          val,
                         )
                       }
-                      className="w-full font-semibold text-slate-800 border-none p-0 focus:ring-0"
+                      className="text-lg font-bold"
+                      style={{ color: data.theme.primary_color }}
+                      placeholder="VỊ TRÍ CÔNG VIỆC"
                     />
-                    <div className="flex gap-4">
-                      <input
-                        type="text"
-                        placeholder="Tổ chức/Công ty"
-                        value={item.subtitle}
-                        onChange={(e) =>
-                          handleUpdateSectionItem(
-                            section.id,
-                            item.id,
-                            "subtitle",
-                            e.target.value || "",
-                          )
-                        }
-                        className="flex-1 text-sm text-slate-500 border-none p-0 focus:ring-0"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Thời gian"
-                        value={item.date}
-                        onChange={(e) =>
-                          handleUpdateSectionItem(
-                            section.id,
-                            item.id,
-                            "date",
-                            e.target.value || "",
-                          )
-                        }
-                        className="w-32 text-sm text-slate-400 text-right border-none p-0 focus:ring-0"
-                      />
+                    <div className="flex justify-center gap-6 mt-4 text-sm text-slate-500 font-medium">
+                      <div className="flex items-center gap-2">
+                        <Mail size={12} className="text-slate-400" />
+                        <EditableField
+                          value={item.description || "email@example.com"}
+                          onSave={(val) =>
+                            updateItemField(
+                              headerSection.id,
+                              item.id,
+                              "description",
+                              val,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone size={12} className="text-slate-400" />
+                        <EditableField
+                          value={item.date || "0123.456.789"}
+                          onSave={(val) =>
+                            updateItemField(
+                              headerSection.id,
+                              item.id,
+                              "date",
+                              val,
+                            )
+                          }
+                        />
+                      </div>
                     </div>
-                    <textarea
-                      placeholder="Mô tả công việc..."
-                      value={item.description}
-                      onChange={(e) =>
-                        handleUpdateSectionItem(
-                          section.id,
-                          item.id,
-                          "description",
-                          e.target.value || "",
-                        )
-                      }
-                      className="w-full text-sm text-slate-600 border-none p-0 focus:ring-0 resize-none"
-                      rows={2}
-                    />
                   </div>
                 ))}
               </div>
-            ))}
+            )}
 
-            {/* Nút thêm mới */}
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              <button
-                onClick={() => handleAddSection("experience")}
-                className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-all"
+            {/* Draggable Sections */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={sortableSections.map((s) => s.id)}
+                strategy={verticalListSortingStrategy}
               >
-                + Thêm Kinh nghiệm
-              </button>
-              <button
-                onClick={() => handleAddSection("education")}
-                className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-all"
-              >
-                + Thêm Học vấn
-              </button>
-            </div>
-          </section>
+                <div className="space-y-10">
+                  {sortableSections.map((section) => (
+                    <SortableSection
+                      key={section.id}
+                      id={section.id}
+                      title={section.title}
+                      isVisible={section.visible}
+                      onToggleVisibility={() =>
+                        toggleSectionVisibility(section.id)
+                      }
+                    >
+                      <div className="space-y-6">
+                        {section.items.map((item) => (
+                          <div key={item.id} className="group/item relative">
+                            <div className="flex justify-between items-start">
+                              <EditableField
+                                value={item.title}
+                                onSave={(val) =>
+                                  updateItemField(
+                                    section.id,
+                                    item.id,
+                                    "title",
+                                    val,
+                                  )
+                                }
+                                className="font-bold text-lg text-slate-800 w-full"
+                              />
+                              <EditableField
+                                value={item.date || ""}
+                                onSave={(val) =>
+                                  updateItemField(
+                                    section.id,
+                                    item.id,
+                                    "date",
+                                    val,
+                                  )
+                                }
+                                className="text-xs text-slate-400 font-bold whitespace-nowrap ml-4 italic"
+                              />
+                            </div>
+                            <EditableField
+                              value={item.subtitle || ""}
+                              onSave={(val) =>
+                                updateItemField(
+                                  section.id,
+                                  item.id,
+                                  "subtitle",
+                                  val,
+                                )
+                              }
+                              className="text-sm font-semibold block"
+                              style={{ color: data.theme.primary_color }}
+                            />
+                            <EditableField
+                              value={item.description || ""}
+                              isTextArea
+                              onSave={(val) =>
+                                updateItemField(
+                                  section.id,
+                                  item.id,
+                                  "description",
+                                  val,
+                                )
+                              }
+                              className="text-slate-600 text-sm mt-2 leading-relaxed"
+                            />
+                          </div>
+                        ))}
+                      </div>
 
-          {/* Theme Settings (Giữ nguyên từ bản trước) */}
-          <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold mb-4">Giao diện</h2>
-            <input
-              type="color"
-              value={cv.layout_data.theme.primary_color}
-              onChange={(e) =>
-                setCv({
-                  ...cv,
-                  layout_data: {
-                    ...cv.layout_data,
-                    theme: {
-                      ...cv.layout_data.theme,
-                      primary_color: e.target.value,
-                    },
-                  },
-                })
-              }
-              className="w-full h-10 rounded cursor-pointer"
-            />
-          </section>
-        </div>
+                      <button
+                        onClick={() => addItem(section.id, section.type)}
+                        className="mt-4 opacity-0 group-hover/section:opacity-100 transition-all text-[10px] font-black text-indigo-600 uppercase tracking-wider hover:bg-indigo-50 px-2 py-1 rounded border border-indigo-200"
+                      >
+                        + Thêm nội dung
+                      </button>
+                    </SortableSection>
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+        </section>
       </main>
     </div>
   );
