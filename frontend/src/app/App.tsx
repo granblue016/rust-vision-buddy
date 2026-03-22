@@ -15,6 +15,8 @@ import AuthPage from "@/features/auth/pages/AuthPage";
 import SignUpPage from "@/features/auth/pages/SignUpPage";
 import OAuthCallbackPage from "@/features/auth/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
+import DashboardPage from "@/features/cv-editor/pages/DashboardPage";
+import CvEditorPage from "@/features/cv-editor/pages/CvEditorPage";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import ProtectedRoute from "@/shared/components/auth/ProtectedRoute";
 
