@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Menu, X, LogIn, LogOut, User, ChevronDown, BarChart3, Mail, FileText } from "lucide-react";
+import { Menu, X, LogIn, LogOut, User, ChevronDown, BarChart3, Mail, FileText, LayoutDashboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
