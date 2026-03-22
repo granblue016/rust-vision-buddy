@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Menu, X, LogIn, LogOut, User, ChevronDown, BarChart3, Mail, FileText } from "lucide-react";
+import { Menu, X, LogIn, LogOut, User, ChevronDown, BarChart3, Mail, FileText, LayoutDashboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,9 +17,10 @@ const Navbar = () => {
     { label: t("nav.cv.analysis"), path: "/solution", icon: BarChart3 },
     { label: t("nav.write.mail"), path: "/write-mail", icon: Mail },
     { label: t("nav.write.cover"), path: "/write-cover-letter", icon: FileText },
+    { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   ];
 
-  const isSolutionActive = ["/solution", "/write-mail", "/write-cover-letter"].includes(location.pathname);
+  const isSolutionActive = ["/solution", "/write-mail", "/write-cover-letter", "/dashboard"].includes(location.pathname);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border/50">

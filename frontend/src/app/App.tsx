@@ -15,6 +15,8 @@ import AuthPage from "@/features/auth/pages/AuthPage";
 import SignUpPage from "@/features/auth/pages/SignUpPage";
 import OAuthCallbackPage from "@/features/auth/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
+import DashboardPage from "@/features/cv-editor/pages/DashboardPage";
+import CvEditorPage from "@/features/cv-editor/pages/CvEditorPage";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import ProtectedRoute from "@/shared/components/auth/ProtectedRoute";
 
@@ -43,10 +45,8 @@ const App = () => (
 
               {/* --- Protected Routes --- */}
               <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<Index />} />
-
-                {/* Đã thay thế EditorPlaceholder bằng EditorPage thực thụ */}
-                <Route path="/editor/:id" element={<EditorPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/editor/:id" element={<CvEditorPage />} />
 
                 <Route path="/solution" element={<SolutionPage />} />
                 <Route path="/write-mail" element={<WriteMailPage />} />
