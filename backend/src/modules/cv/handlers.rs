@@ -1,5 +1,5 @@
 use crate::modules::cv::models::{
-    CreateCvRequest, Cv, CvLayoutData, CvResponse, CvTheme, UpdateCvRequest,
+    CreateCvRequest, Cv, CvLayoutData, CvResponse, CvSection, CvTheme, UpdateCvRequest,
 };
 use crate::shared::app_state::AppState;
 use axum::{
@@ -9,28 +9,63 @@ use axum::{
 };
 use uuid::Uuid;
 
-/// Tạo mới một bản nháp CV
+/// 1. Tạo mới một bản nháp CV với Layout mặc định
 pub async fn create_cv(
     State(state): State<AppState>,
     Json(payload): Json<CreateCvRequest>,
 ) -> Result<(StatusCode, Json<CvResponse>), StatusCode> {
-    // Tạm thời dùng Uuid::nil() cho user_id.
-    // LƯU Ý: Đảm bảo bảng 'users' có tồn tại bản ghi với ID này nếu migration có REFERENCES.
-    let user_id = Uuid::nil();
+    let user_id = Uuid::nil(); // TODO: Lấy từ JWT Token sau này
     let cv_id = Uuid::new_v4();
 
-    let default_layout = CvLayoutData {
-        theme: CvTheme {
-            font_family: "Inter".to_string(),
-            font_size: "md".to_string(),
-            line_height: 1.5,
-            primary_color: "#2563eb".to_string(),
+    // Khởi tạo các Section mặc định để người dùng có cái để kéo thả ngay lập tức
+    let default_sections = vec![
+        CvSection {
+            id: "header".into(),
+            r#type: "header".into(),
+            title: "Thông tin cá nhân".into(),
+            visible: true,
+            items: vec![],
         },
-        sections: vec![],
+        CvSection {
+            id: "summary".into(),
+            r#type: "summary".into(),
+            title: "Giới thiệu".into(),
+            visible: true,
+            items: vec![],
+        },
+        CvSection {
+            id: "experience".into(),
+            r#type: "experience".into(),
+            title: "Kinh nghiệm làm việc".into(),
+            visible: true,
+            items: vec![],
+        },
+        CvSection {
+            id: "education".into(),
+            r#type: "education".into(),
+            title: "Học vấn".into(),
+            visible: true,
+            items: vec![],
+        },
+        CvSection {
+            id: "skills".into(),
+            r#type: "skills".into(),
+            title: "Kỹ năng".into(),
+            visible: true,
+            items: vec![],
+        },
+    ];
+
+    let default_layout = CvLayoutData {
+        template_id: payload
+            .template_id
+            .unwrap_or_else(|| "modern-01".to_string()),
+        theme: CvTheme::default(),
+        sections: default_sections,
     };
 
-    // Chuyển đổi sang sqlx::types::Json để khớp với macro query!
-    let layout_json = sqlx::types::Json(default_layout);
+    let layout_json =
+        serde_json::to_value(default_layout).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     sqlx::query!(
         r#"
@@ -40,7 +75,7 @@ pub async fn create_cv(
         cv_id,
         user_id,
         payload.name,
-        serde_json::to_value(&layout_json).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        layout_json
     )
     .execute(&state.db)
     .await
@@ -58,12 +93,11 @@ pub async fn create_cv(
     ))
 }
 
-/// Lấy chi tiết một CV theo ID
+/// 2. Lấy chi tiết một CV (Dữ liệu này sẽ được Lovable dùng để render Editor)
 pub async fn get_cv_by_id(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Cv>, StatusCode> {
-    // Ép kiểu "layout_data" ngay trong SQL để SQLx map chính xác vào Struct
     let cv = sqlx::query_as!(
         Cv,
         r#"
@@ -92,15 +126,16 @@ pub async fn get_cv_by_id(
     Ok(Json(cv))
 }
 
-/// Cập nhật nội dung CV
+/// 3. Cập nhật Layout & Nội dung (API then chốt cho tính năng kéo thả)
 pub async fn update_cv(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateCvRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let layout_json = sqlx::types::Json(payload.layout_data);
+    let layout_json =
+        serde_json::to_value(payload.layout_data).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    sqlx::query!(
+    let result = sqlx::query!(
         r#"
         UPDATE cvs
         SET
@@ -110,7 +145,7 @@ pub async fn update_cv(
         WHERE id = $3
         "#,
         payload.name,
-        serde_json::to_value(&layout_json).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        layout_json,
         id
     )
     .execute(&state.db)
@@ -120,10 +155,14 @@ pub async fn update_cv(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
+    if result.rows_affected() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
     Ok(StatusCode::OK)
 }
 
-/// Liệt kê danh sách CV
+/// 4. Liệt kê toàn bộ CV của user
 pub async fn list_user_cvs(State(state): State<AppState>) -> Result<Json<Vec<Cv>>, StatusCode> {
     let cvs = sqlx::query_as!(
         Cv,
@@ -149,7 +188,7 @@ pub async fn list_user_cvs(State(state): State<AppState>) -> Result<Json<Vec<Cv>
     Ok(Json(cvs))
 }
 
-/// Xóa CV
+/// 5. Xóa CV
 pub async fn delete_cv(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

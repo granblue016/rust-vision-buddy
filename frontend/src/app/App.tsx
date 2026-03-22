@@ -18,24 +18,9 @@ import NotFound from "@/pages/NotFound";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import ProtectedRoute from "@/shared/components/auth/ProtectedRoute";
 
-// Import các trang quản lý CV chúng ta vừa tạo
+// Import các trang chính
 import Index from "@/pages/Index";
-
-// Component tạm thời cho Editor (Bạn sẽ phát triển chi tiết sau)
-const EditorPlaceholder = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
-    <h1 className="text-2xl font-bold text-slate-900 mb-2">
-      Trình chỉnh sửa CV
-    </h1>
-    <p className="text-slate-500">Đang tải cấu hình kéo thả...</p>
-    <a
-      href="/dashboard"
-      className="mt-6 text-indigo-600 hover:underline font-medium"
-    >
-      ← Quay lại danh sách CV
-    </a>
-  </div>
-);
+import EditorPage from "@/pages/EditorPage"; // Import file mới tạo
 
 const queryClient = new QueryClient();
 
@@ -56,13 +41,12 @@ const App = () => (
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
 
-              {/* --- Protected Routes (Yêu cầu đăng nhập) --- */}
+              {/* --- Protected Routes --- */}
               <Route element={<ProtectedRoute />}>
-                {/* Trang Dashboard hiển thị danh sách CV */}
                 <Route path="/dashboard" element={<Index />} />
 
-                {/* Trang Editor để chỉnh sửa CV cụ thể */}
-                <Route path="/editor/:id" element={<EditorPlaceholder />} />
+                {/* Đã thay thế EditorPlaceholder bằng EditorPage thực thụ */}
+                <Route path="/editor/:id" element={<EditorPage />} />
 
                 <Route path="/solution" element={<SolutionPage />} />
                 <Route path="/write-mail" element={<WriteMailPage />} />
