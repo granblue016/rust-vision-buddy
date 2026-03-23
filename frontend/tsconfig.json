@@ -3,7 +3,7 @@
     "target": "ESNext",
     "useDefineForClassFields": true,
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "allowJs": false,
+    "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -15,19 +15,15 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+
+    /* Sửa lại baseUrl để nhận diện đúng folder src hiện tại */
     "baseUrl": ".",
     "paths": {
-      /* Bỏ dấu ./ ở đầu để khớp với cấu hình Vite thông thường */
-      "@/*": ["src/*"],
+      "@/*": ["./src/*"],
     },
+
     "types": ["node", "vite/client", "vitest/globals"],
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/**/*.d.ts",
-    "vite.config.ts",
-    "tailwind.config.ts",
-  ],
-  "exclude": ["node_modules"],
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"],
 }

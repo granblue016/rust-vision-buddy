@@ -2,17 +2,28 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": true,
-    "skipLibCheck": true,
+    "target": "ESNext",
+    "lib": ["ESNext"],
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "Bundler",
+    "emitDeclarationOnly": false,
     "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+
+    /* Đảm bảo Node hiểu các file config cũng có thể dùng alias nếu cần */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+    },
   },
   "include": [
     "vite.config.ts",
     "vitest.config.ts",
     "postcss.config.js",
     "tailwind.config.ts",
+    "eslint.config.js",
   ],
+  "exclude": ["node_modules"],
 }

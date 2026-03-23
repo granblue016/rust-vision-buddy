@@ -1,24 +1,58 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Plus, FileText, MoreHorizontal, Clock, Trash2, Edit3 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom"; // Thêm useNavigate để điều hướng động
+import { Plus, FileText, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
-
-interface CvDraft {
-  id: string;
-  name: string;
-  template_id: string;
-  updated_at: string;
-}
-
-const MOCK_DRAFTS: CvDraft[] = [
-  { id: "1", name: "CV Frontend Developer", template_id: "modern-01", updated_at: "2026-03-22T10:30:00Z" },
-  { id: "2", name: "CV Fullstack Engineer", template_id: "classic-01", updated_at: "2026-03-20T15:45:00Z" },
-  { id: "3", name: "CV Intern Application", template_id: "minimal-01", updated_at: "2026-03-18T09:00:00Z" },
-];
+import { cvService } from "@/services/cvService";
+import { Cv } from "@/types/cv";
 
 const DashboardPage = () => {
-  const [drafts] = useState<CvDraft[]>(MOCK_DRAFTS);
+  const [drafts, setDrafts] = useState<Cv[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false); // Trạng thái chờ khi tạo CV mới
+  const navigate = useNavigate();
+
+  // 1. Lấy danh sách CV từ Backend khi vào trang
+  useEffect(() => {
+    const fetchCvList = async () => {
+      try {
+        const data = await cvService.list();
+        if (data) {
+          setDrafts(data);
+        }
+      } catch (err) {
+        console.error("Lỗi lấy danh sách CV:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCvList();
+  }, []);
+
+  // 2. Hàm xử lý tạo CV mới (Thay thế Link tĩnh bằng gọi API)
+  const handleCreateNewCv = async () => {
+    setIsCreating(true);
+    try {
+      const newCvRequest = {
+        name: "CV mới chưa đặt tên",
+        template_id: "modern-01",
+      };
+
+      // Gọi Backend Rust để sinh UUID mới trong Database
+      const response = await cvService.create(newCvRequest);
+
+      if (response && response.id) {
+        // Sau khi tạo thành công, điều hướng thẳng vào trang Editor với ID thật
+        navigate(`/editor/${response.id}`);
+      }
+    } catch (err) {
+      console.error("Lỗi khi tạo CV:", err);
+      alert("Không thể kết nối với Backend để tạo CV mới.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,55 +60,70 @@ const DashboardPage = () => {
       <div className="pt-24 pb-16 section-container">
         <div className="flex items-end justify-between mb-8">
           <div>
-            <h1 className="font-display text-2xl font-bold text-foreground">CV của tôi</h1>
-            <p className="text-sm text-muted-foreground mt-1">Quản lý và chỉnh sửa các bản CV đã tạo</p>
+            <h1 className="font-display text-2xl font-bold text-foreground">
+              CV của tôi
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Quản lý và chỉnh sửa các bản CV chuyên nghiệp
+            </p>
           </div>
-          <Link to="/editor/new">
-            <Button className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm">
-              <Plus className="w-4 h-4" /> Tạo CV mới
-            </Button>
-          </Link>
+
+          {/* Nút tạo mới sử dụng hàm handleCreateNewCv */}
+          <Button
+            onClick={handleCreateNewCv}
+            disabled={isCreating}
+            className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm"
+          >
+            {isCreating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+            {isCreating ? "Đang tạo..." : "Tạo CV mới"}
+          </Button>
         </div>
 
-        {drafts.length === 0 ? (
-          <div className="text-center py-20 bg-card rounded-2xl border border-border">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <Loader2 className="w-8 h-8 animate-spin mb-2" />
+            <p>Đang kết nối Backend Rust...</p>
+          </div>
+        ) : drafts.length === 0 ? (
+          <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border">
             <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground mb-4">Bạn chưa có CV nào. Hãy tạo bản đầu tiên!</p>
-            <Link to="/editor/new">
-              <Button className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-                <Plus className="w-4 h-4" /> Bắt đầu tạo CV
-              </Button>
-            </Link>
+            <p className="text-muted-foreground mb-4">
+              Bạn chưa có bản CV nào trong hệ thống.
+            </p>
+            <Button
+              onClick={handleCreateNewCv}
+              variant="outline"
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" /> Bắt đầu tạo ngay
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {drafts.map((draft) => (
-              <Link
-                key={draft.id}
-                to={`/editor/${draft.id}`}
-                className="group block"
-              >
-                <div className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-elevated hover:border-accent/30 hover:-translate-y-0.5 active:scale-[0.98]">
-                  {/* Preview thumbnail */}
+            {drafts.map((cv) => (
+              <Link key={cv.id} to={`/editor/${cv.id}`} className="group block">
+                <div className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-elevated hover:border-accent/30 hover:-translate-y-0.5">
                   <div className="aspect-[210/160] bg-muted/50 border-b border-border flex items-center justify-center relative">
                     <FileText className="w-10 h-10 text-muted-foreground/40" />
-                    <span className="absolute top-2 right-2 text-[10px] bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 font-medium uppercase tracking-wider">
-                      {draft.template_id.replace("-", " ")}
+                    <span className="absolute top-2 right-2 text-[10px] bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 font-medium uppercase">
+                      {cv.layout_data?.template_id?.replace("-", " ") ||
+                        "Modern"}
                     </span>
                   </div>
 
-                  {/* Info */}
                   <div className="p-4">
-                    <h3 className="font-medium text-sm text-foreground group-hover:text-accent transition-colors truncate">
-                      {draft.name}
+                    <h3 className="font-medium text-sm text-foreground group-hover:text-accent truncate">
+                      {cv.name}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
                       <Clock className="w-3 h-3" />
-                      {new Date(draft.updated_at).toLocaleDateString("vi-VN", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })}
+                      {cv.updated_at
+                        ? new Date(cv.updated_at).toLocaleDateString("vi-VN")
+                        : "Vừa xong"}
                     </div>
                   </div>
                 </div>

@@ -18,13 +18,26 @@ pub struct CvSectionItem {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CvSection {
     pub id: String,
-    pub r#type: String, // "experience", "education", "skills", v.v.
+    pub r#type: String, // "header", "experience", "education", "skills", "summary"
     pub title: String,  // Tiêu đề hiển thị (có thể sửa đổi)
-    pub visible: bool,  // Trạng thái ẩn/hiện của section này
+    pub visible: bool,  // Trạng thái ẩn/hiện
     pub items: Vec<CvSectionItem>,
 }
 
-/// 3. Định nghĩa các tùy chỉnh về giao diện
+// Cung cấp giá trị mặc định cho Section nếu cần khởi tạo nhanh
+impl Default for CvSection {
+    fn default() -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            r#type: "experience".to_string(),
+            title: "New Section".to_string(),
+            visible: true,
+            items: vec![],
+        }
+    }
+}
+
+/// 3. Định nghĩa các tùy chỉnh về giao diện (Theme)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CvTheme {
     pub font_family: String,
@@ -35,7 +48,6 @@ pub struct CvTheme {
     pub background_image: Option<String>,
 }
 
-// Cung cấp giá trị mặc định cho Theme
 impl Default for CvTheme {
     fn default() -> Self {
         Self {
@@ -49,12 +61,12 @@ impl Default for CvTheme {
     }
 }
 
-/// 4. Chứa toàn bộ dữ liệu cấu trúc của CV
+/// 4. Chứa toàn bộ dữ liệu cấu trúc của CV (LayoutData)
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CvLayoutData {
-    pub template_id: String, // ID của biểu mẫu (ví dụ: "modern-01", "classic-v2")
+    pub template_id: String, // Ví dụ: "modern-01", "classic-v2"
     pub theme: CvTheme,
-    pub sections: Vec<CvSection>, // Thứ tự trong mảng này chính là thứ tự hiển thị
+    pub sections: Vec<CvSection>, // Thứ tự mảng là thứ tự hiển thị thực tế
 }
 
 /// 5. Model đại diện cho bảng 'cvs' trong Postgres
@@ -68,7 +80,8 @@ pub struct Cv {
     pub updated_at: DateTime<Utc>,
 }
 
-// Các struct cho Request/Response
+// --- Các Struct phục vụ Request/Response API ---
+
 #[derive(Debug, Serialize)]
 pub struct CvResponse {
     pub id: Uuid,
@@ -78,10 +91,10 @@ pub struct CvResponse {
 #[derive(Debug, Deserialize)]
 pub struct CreateCvRequest {
     pub name: String,
-    pub template_id: Option<String>, // Cho phép chọn mẫu khi tạo mới
+    pub template_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct UpdateCvRequest {
     pub name: Option<String>,
     pub layout_data: CvLayoutData,

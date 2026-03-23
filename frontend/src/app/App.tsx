@@ -2,27 +2,31 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+
+// Marketing & Public Pages
 import LandingPage from "@/features/marketing/pages/LandingPage";
-import SolutionPage from "@/features/cv-analysis/pages/SolutionPage";
-import WriteMailPage from "@/features/content-generation/pages/WriteMailPage";
-import WriteCoverLetterPage from "@/features/content-generation/pages/WriteCoverLetterPage";
 import AboutPage from "@/features/marketing/pages/AboutPage";
 import ContactPage from "@/features/marketing/pages/ContactPage";
+
+// Auth Pages
 import AuthPage from "@/features/auth/pages/AuthPage";
 import SignUpPage from "@/features/auth/pages/SignUpPage";
 import OAuthCallbackPage from "@/features/auth/pages/OAuthCallbackPage";
-import NotFound from "@/pages/NotFound";
+
+// Core Editor & Features
 import DashboardPage from "@/features/cv-editor/pages/DashboardPage";
-import CvEditorPage from "@/features/cv-editor/pages/CvEditorPage";
+import EditorPage from "@/features/cv-editor/pages/EditorPage"; // Route mới chuẩn của chúng ta
+import SolutionPage from "@/features/cv-analysis/pages/SolutionPage";
+import WriteMailPage from "@/features/content-generation/pages/WriteMailPage";
+import WriteCoverLetterPage from "@/features/content-generation/pages/WriteCoverLetterPage";
+
+// Components & Utils
 import ChatbotWidget from "@/components/ChatbotWidget";
 import ProtectedRoute from "@/shared/components/auth/ProtectedRoute";
-
-// Import các trang chính
-import Index from "@/pages/Index";
-import EditorPage from "@/pages/EditorPage"; // Import file mới tạo
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -31,8 +35,10 @@ const App = () => (
     <LanguageProvider>
       <AuthProvider>
         <TooltipProvider>
+          {/* Toast notifications */}
           <Toaster />
-          <Sonner />
+          <Sonner position="top-right" expand={false} richColors />
+
           <BrowserRouter>
             <Routes>
               {/* --- Public Routes --- */}
@@ -43,10 +49,14 @@ const App = () => (
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
 
-              {/* --- Protected Routes --- */}
+              {/* --- Protected Routes (Yêu cầu đăng nhập) --- */}
               <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/editor/:id" element={<CvEditorPage />} />
+
+                {/* Route Editor chính:
+                  Sử dụng EditorPage mới đã tích hợp Zustand & Rust Backend
+                */}
+                <Route path="/editor/:id" element={<EditorPage />} />
 
                 <Route path="/solution" element={<SolutionPage />} />
                 <Route path="/write-mail" element={<WriteMailPage />} />
@@ -56,9 +66,12 @@ const App = () => (
                 />
               </Route>
 
-              {/* --- 404 Route --- */}
+              {/* --- Redirects & 404 --- */}
+              <Route path="/index" element={<Navigate to="/" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+
+            {/* AI Assistant luôn hiển thị ở góc màn hình */}
             <ChatbotWidget />
           </BrowserRouter>
         </TooltipProvider>

@@ -1,0 +1,107 @@
+/* Màu sắc thương hiệu và biến số */
+:root {
+  --topcv-green: #00b14f;
+  --topcv-green-light: #e6f7ed;
+  --editor-bg: #f0f2f5;
+  --border-color: #dee2e6;
+}
+
+/* 1. Layout Container cho vùng soạn thảo */
+.cv-editor-container {
+  background-color: var(--editor-bg);
+  min-height: calc(100vh - 3.5rem);
+  padding: 40px 20px;
+}
+
+/* 2. Style cho tờ A4 giả lập */
+.cv-paper {
+  background: white;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  position: relative;
+  transition: box-shadow 0.3s ease;
+}
+
+/* 3. Hiệu ứng cho các Section (Khối nội dung) */
+.cv-section {
+  position: relative;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+/* Khi rê chuột vào một mục (Section) */
+.cv-section:hover {
+  border: 1px dashed var(--topcv-green);
+  background-color: rgba(0, 177, 79, 0.02);
+}
+
+/* 4. Indicator: Icon 6 chấm báo hiệu kéo thả */
+.cv-section::before {
+  content: ":::"; /* Giả lập icon 6 chấm Drag Handle */
+  position: absolute;
+  left: -25px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #ccc;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.2s;
+  cursor: grab;
+}
+
+.cv-section:hover::before {
+  opacity: 1;
+}
+
+/* 5. Style khi đang kéo (Dragging State) */
+.cv-section.is-dragging {
+  opacity: 0.5;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  background: white;
+  z-index: 1000;
+  cursor: grabbing;
+}
+
+/* 6. Tiêu đề mục theo phong cách TopCV */
+.cv-section-title {
+  color: var(--topcv-green);
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--topcv-green);
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+}
+
+/* 7. Input soạn thảo trực tiếp (Inline Editing) */
+.cv-editable-text {
+  border: 1px solid transparent;
+  padding: 2px 4px;
+  border-radius: 4px;
+  outline: none;
+  transition: background 0.2s;
+}
+
+.cv-editable-text:hover {
+  background: #f8f9fa;
+  border-color: var(--border-color);
+}
+
+.cv-editable-text:focus {
+  background: white;
+  border-color: var(--topcv-green);
+  box-shadow: 0 0 0 2px var(--topcv-green-light);
+}
+
+/* 8. Vùng thả (Drop Indicator) */
+.drop-indicator {
+  height: 4px;
+  background-color: var(--topcv-green);
+  margin: 4px 0;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}

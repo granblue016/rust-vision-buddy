@@ -1,110 +1,158 @@
 import { Cv, CreateCvRequest, UpdateCvRequest } from "../types/cv";
 
-// URL mặc định cho backend Rust
-const BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:9000";
+/**
+ * Cấu hình URL cho Backend Rust.
+ * Ưu tiên lấy từ biến môi trường VITE_BACKEND_URL.
+ * Nếu không có, mặc định dùng http://localhost:8080 (Khớp với backend/src/main.rs)
+ */
+const BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
 const API_URL = `${BASE_URL}/api/v1/cvs`;
 
 /**
- * Hàm hỗ trợ lấy Token từ LocalStorage hoặc Firebase
- * (Bạn có thể điều chỉnh tùy theo cách lưu Token của mình)
+ * Hàm hỗ trợ lấy Token từ LocalStorage để thực hiện Authentication
  */
-const getAuthHeaders = () => {
+const getAuthHeaders = (isPostOrPut = true) => {
   const token = localStorage.getItem("auth_token");
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  const headers: Record<string, string> = {
+    // Sửa lỗi CORS: Đảm bảo header khớp với Backend
+    Accept: "application/json",
+    "x-requested-with": "XMLHttpRequest",
   };
+
+  if (isPostOrPut) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  return headers;
 };
 
 export const cvService = {
   /**
    * 1. Lấy danh sách toàn bộ CV của người dùng
+   * Endpoint: GET /api/v1/cvs
    */
   async list(): Promise<Cv[]> {
-    const response = await fetch(`${API_URL}`, {
-      headers: getAuthHeaders(),
-    });
+    try {
+      const response = await fetch(`${API_URL}`, {
+        method: "GET",
+        headers: getAuthHeaders(false),
+      });
 
-    if (!response.ok) {
-      const errorMsg = await response.text();
-      console.error("List CV Error:", errorMsg);
-      throw new Error("Không thể tải danh sách CV. Vui lòng kiểm tra kết nối.");
+      if (!response.ok) {
+        const errorMsg = await response.text();
+        throw new Error(errorMsg || "Không thể tải danh sách CV");
+      }
+      return await response.json();
+    } catch (err: any) {
+      console.error("List CV Error:", err);
+      throw err;
     }
-    return response.json();
   },
 
   /**
    * 2. Tạo một CV mới
-   * Trả về ID của CV vừa tạo để điều hướng sang trang Editor
+   * Endpoint: POST /api/v1/cvs
    */
   async create(
     data: CreateCvRequest,
   ): Promise<{ id: string; message: string }> {
-    const response = await fetch(`${API_URL}`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
+    try {
+      const response = await fetch(`${API_URL}`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
 
-    if (!response.ok) {
-      const errorDetail = await response.text();
-      console.error("Backend Create Error:", errorDetail);
-      throw new Error("Lỗi khi tạo CV mới trên Server");
+      if (!response.ok) {
+        const errorDetail = await response.text();
+        throw new Error(errorDetail || "Lỗi khi tạo CV mới");
+      }
+      return await response.json();
+    } catch (err: any) {
+      console.error("Backend Create Error:", err);
+      throw err;
     }
-    return response.json();
   },
 
   /**
-   * 3. Lấy chi tiết một CV dựa trên ID
+   * 3. Lấy chi tiết một CV dựa trên ID (UUID)
+   * Giải quyết lỗi "net::ERR_CONNECTION_REFUSED" bằng cách dùng đúng Port 8080
    */
   async getById(id: string): Promise<Cv> {
-    const response = await fetch(`${API_URL}/${id}`, {
-      headers: getAuthHeaders(),
-    });
+    try {
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: "GET",
+        headers: getAuthHeaders(false),
+      });
 
-    if (!response.ok) {
-      const errorMsg = await response.text();
-      console.error("GetById Error:", errorMsg);
-      throw new Error("Không tìm thấy dữ liệu CV");
+      if (!response.ok) {
+        // Xử lý lỗi 400 (Bad Request) khi ID không phải UUID hợp lệ
+        if (response.status === 400) {
+          throw new Error("Định dạng ID không hợp lệ (Phải là UUID)");
+        }
+        if (response.status === 404) {
+          throw new Error("Không tìm thấy dữ liệu CV trên hệ thống");
+        }
+        const errorDetail = await response.text();
+        throw new Error(errorDetail || "Lỗi hệ thống khi tải CV");
+      }
+      return await response.json();
+    } catch (err: any) {
+      console.error("GetById Error:", err);
+      // Cập nhật thông báo lỗi để người dùng biết port thực tế đang dùng
+      throw new Error(
+        err.message || `Kết nối Backend thất bại tại ${BASE_URL}`,
+      );
     }
-    return response.json();
   },
 
   /**
-   * 4. Cập nhật nội dung CV (Đồng bộ với Rust Backend)
+   * 4. Cập nhật nội dung CV (Sử dụng Method PUT)
+   * Nhận vào UpdateCvRequest chứa layout_data
    */
   async update(id: string, data: UpdateCvRequest): Promise<void> {
-    console.log("Payload gửi lên Rust:", data);
+    try {
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      });
 
-    const response = await fetch(`${API_URL}/${id}`, {
-      method: "PUT",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errorDetail = await response.text();
-      // Backend Rust sẽ trả về chi tiết lỗi nếu JSON không khớp Struct
-      console.error("Rust Update Error Detail:", errorDetail);
-      throw new Error(`Lưu thất bại: ${response.statusText}`);
+      if (!response.ok) {
+        const errorDetail = await response.text();
+        // Log chi tiết để debug lỗi Mismatch Struct với Rust Backend
+        console.error("Rust Struct Mismatch Details:", errorDetail);
+        throw new Error(
+          "Lưu thất bại: Cấu trúc dữ liệu không khớp với Backend",
+        );
+      }
+    } catch (err: any) {
+      console.error("Update Error:", err);
+      throw err;
     }
-
-    console.log("Cập nhật Database thành công!");
   },
 
   /**
    * 5. Xóa CV khỏi hệ thống
    */
   async delete(id: string): Promise<void> {
-    const response = await fetch(`${API_URL}/${id}`, {
-      method: "DELETE",
-      headers: getAuthHeaders(),
-    });
+    try {
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(false),
+      });
 
-    if (!response.ok) {
-      const errorMsg = await response.text();
-      console.error("Delete Error:", errorMsg);
-      throw new Error("Lỗi khi xóa CV");
+      if (!response.ok) {
+        const errorDetail = await response.text();
+        throw new Error(errorDetail || "Lỗi khi xóa CV khỏi Database");
+      }
+    } catch (err: any) {
+      console.error("Delete Error:", err);
+      throw err;
     }
   },
 };

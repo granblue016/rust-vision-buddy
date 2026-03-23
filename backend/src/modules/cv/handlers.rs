@@ -1,5 +1,5 @@
 use crate::modules::cv::models::{
-    CreateCvRequest, Cv, CvLayoutData, CvResponse, CvSection, CvTheme, UpdateCvRequest,
+    CreateCvRequest, Cv, CvLayoutData, CvResponse, CvTheme, UpdateCvRequest,
 };
 use crate::shared::app_state::AppState;
 use axum::{
@@ -7,71 +7,32 @@ use axum::{
     http::StatusCode,
     Json,
 };
+use tracing::error;
 use uuid::Uuid;
 
-/// 1. Tạo mới một bản nháp CV với Layout mặc định
+/// 1. Tạo mới CV
+/// Handler này nhận dữ liệu từ Frontend để tạo một bản ghi CV mới trong DB
 pub async fn create_cv(
     State(state): State<AppState>,
     Json(payload): Json<CreateCvRequest>,
 ) -> Result<(StatusCode, Json<CvResponse>), StatusCode> {
-    let user_id = Uuid::nil(); // TODO: Lấy từ JWT Token sau này
+    let user_id = Uuid::nil(); // Hiện tại dùng UUID mặc định cho user
     let cv_id = Uuid::new_v4();
-
-    // Khởi tạo các Section mặc định để người dùng có cái để kéo thả ngay lập tức
-    let default_sections = vec![
-        CvSection {
-            id: "header".into(),
-            r#type: "header".into(),
-            title: "Thông tin cá nhân".into(),
-            visible: true,
-            items: vec![],
-        },
-        CvSection {
-            id: "summary".into(),
-            r#type: "summary".into(),
-            title: "Giới thiệu".into(),
-            visible: true,
-            items: vec![],
-        },
-        CvSection {
-            id: "experience".into(),
-            r#type: "experience".into(),
-            title: "Kinh nghiệm làm việc".into(),
-            visible: true,
-            items: vec![],
-        },
-        CvSection {
-            id: "education".into(),
-            r#type: "education".into(),
-            title: "Học vấn".into(),
-            visible: true,
-            items: vec![],
-        },
-        CvSection {
-            id: "skills".into(),
-            r#type: "skills".into(),
-            title: "Kỹ năng".into(),
-            visible: true,
-            items: vec![],
-        },
-    ];
 
     let default_layout = CvLayoutData {
         template_id: payload
             .template_id
             .unwrap_or_else(|| "modern-01".to_string()),
         theme: CvTheme::default(),
-        sections: default_sections,
+        sections: vec![], // Khởi tạo mảng rỗng theo migration
     };
 
+    // Chuyển đổi Struct sang JSON để lưu vào Postgres JSONB
     let layout_json =
         serde_json::to_value(default_layout).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     sqlx::query!(
-        r#"
-        INSERT INTO cvs (id, user_id, name, layout_data)
-        VALUES ($1, $2, $3, $4)
-        "#,
+        r#"INSERT INTO cvs (id, user_id, name, layout_data) VALUES ($1, $2, $3, $4)"#,
         cv_id,
         user_id,
         payload.name,
@@ -80,7 +41,7 @@ pub async fn create_cv(
     .execute(&state.db)
     .await
     .map_err(|e| {
-        eprintln!("🔥 Database Error (Create): {:?}", e);
+        error!("🔥 Database Error: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -88,37 +49,37 @@ pub async fn create_cv(
         StatusCode::CREATED,
         Json(CvResponse {
             id: cv_id,
-            message: "Khởi tạo CV thành công".to_string(),
+            message: "Tạo CV thành công".into(),
         }),
     ))
 }
 
-/// 2. Lấy chi tiết một CV (Dữ liệu này sẽ được Lovable dùng để render Editor)
+/// 2. Lấy chi tiết CV - Giải quyết triệt để lỗi "UUID parsing failed"
+/// Khi người dùng vào /editor/1, Path(id_str) sẽ nhận là "1" và trả về 400 thay vì lỗi 500
 pub async fn get_cv_by_id(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id_str): Path<String>,
 ) -> Result<Json<Cv>, StatusCode> {
+    // Kiểm tra tính hợp lệ của UUID. Tránh lỗi hiển thị trong ảnh image_5872a9.png
+    let target_id = Uuid::parse_str(&id_str).map_err(|_| {
+        error!("❌ Invalid UUID format: {}", id_str);
+        StatusCode::BAD_REQUEST
+    })?;
+
     let cv = sqlx::query_as!(
         Cv,
-        r#"
-        SELECT
-            id,
-            user_id,
-            name,
-            layout_data as "layout_data: sqlx::types::Json<CvLayoutData>",
-            created_at,
-            updated_at
-        FROM cvs
-        WHERE id = $1
-        "#,
-        id
+        r#"SELECT id, user_id, name,
+               layout_data as "layout_data: sqlx::types::Json<CvLayoutData>",
+               created_at, updated_at
+        FROM cvs WHERE id = $1"#,
+        target_id
     )
     .fetch_one(&state.db)
     .await
     .map_err(|e| match e {
         sqlx::Error::RowNotFound => StatusCode::NOT_FOUND,
         _ => {
-            eprintln!("🔥 Database Error (Get): {:?}", e);
+            error!("🔥 DB Error: {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         }
     })?;
@@ -126,39 +87,33 @@ pub async fn get_cv_by_id(
     Ok(Json(cv))
 }
 
-/// 3. Cập nhật Layout & Nội dung (API then chốt cho tính năng kéo thả)
+/// 3. Cập nhật CV (PUT method)
 pub async fn update_cv(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id_str): Path<String>,
     Json(payload): Json<UpdateCvRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let target_id = Uuid::parse_str(&id_str).map_err(|_| StatusCode::BAD_REQUEST)?;
+
     let layout_json =
         serde_json::to_value(payload.layout_data).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let result = sqlx::query!(
-        r#"
-        UPDATE cvs
-        SET
-            name = COALESCE($1, name),
-            layout_data = $2,
-            updated_at = NOW()
-        WHERE id = $3
-        "#,
+        r#"UPDATE cvs SET name = COALESCE($1, name), layout_data = $2, updated_at = NOW() WHERE id = $3"#,
         payload.name,
         layout_json,
-        id
+        target_id
     )
     .execute(&state.db)
     .await
     .map_err(|e| {
-        eprintln!("🔥 Database Error (Update): {:?}", e);
+        error!("🔥 Update Error: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
     if result.rows_affected() == 0 {
         return Err(StatusCode::NOT_FOUND);
     }
-
     Ok(StatusCode::OK)
 }
 
@@ -166,22 +121,16 @@ pub async fn update_cv(
 pub async fn list_user_cvs(State(state): State<AppState>) -> Result<Json<Vec<Cv>>, StatusCode> {
     let cvs = sqlx::query_as!(
         Cv,
-        r#"
-        SELECT
-            id,
-            user_id,
-            name,
-            layout_data as "layout_data: sqlx::types::Json<CvLayoutData>",
-            created_at,
-            updated_at
+        r#"SELECT id, user_id, name,
+               layout_data as "layout_data: sqlx::types::Json<CvLayoutData>",
+               created_at, updated_at
         FROM cvs
-        ORDER BY updated_at DESC
-        "#
+        ORDER BY updated_at DESC"#
     )
     .fetch_all(&state.db)
     .await
     .map_err(|e| {
-        eprintln!("🔥 Database Error (List): {:?}", e);
+        error!("🔥 List Error: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -191,19 +140,20 @@ pub async fn list_user_cvs(State(state): State<AppState>) -> Result<Json<Vec<Cv>
 /// 5. Xóa CV
 pub async fn delete_cv(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id_str): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let result = sqlx::query!("DELETE FROM cvs WHERE id = $1", id)
+    let target_id = Uuid::parse_str(&id_str).map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    let result = sqlx::query!("DELETE FROM cvs WHERE id = $1", target_id)
         .execute(&state.db)
         .await
         .map_err(|e| {
-            eprintln!("🔥 Database Error (Delete): {:?}", e);
+            error!("🔥 Delete Error: {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
     if result.rows_affected() == 0 {
         return Err(StatusCode::NOT_FOUND);
     }
-
     Ok(StatusCode::NO_CONTENT)
 }

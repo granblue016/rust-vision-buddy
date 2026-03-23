@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": true,
-    "target": "ES2022",
+    "target": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -12,21 +12,21 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Cô lập lỗi: Nới lỏng kiểm tra để tập trung vào logic giao diện */
+    /* Kiểm tra kiểu dữ liệu */
     "strict": true,
     "noImplicitAny": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "skipLibCheck": true,
 
-    /* Sửa lỗi: Đảm bảo TypeScript nhận diện đủ thư viện Node, Vite và Vitest */
-    "types": ["node", "vite/client", "vitest/globals"],
-
-    /* Sửa lỗi Alias: Định nghĩa dấu @ là thư mục src */
+    /* Đường dẫn Alias - Phải khớp với tsconfig.json gốc */
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
     },
+
+    /* Thư viện bổ sung */
+    "types": ["node", "vite/client", "vitest/globals"],
   },
   "include": [
     "src/**/*.ts",
@@ -34,7 +34,6 @@
     "src/**/*.d.ts",
     "vite.config.ts",
     "tailwind.config.ts",
-    "postcss.config.js",
   ],
   "exclude": ["node_modules"],
 }
