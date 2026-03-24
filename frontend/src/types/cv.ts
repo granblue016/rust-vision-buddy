@@ -1,12 +1,25 @@
 /**
+ * Thông tin cá nhân tập trung (Header) - Giống cấu trúc TopCV
+ */
+export interface PersonalInfo {
+  fullName: string;
+  title: string;
+  email: string;
+  phone: string;
+  address: string;
+  website: string;
+  avatar?: string;
+}
+
+/**
  * Định nghĩa Theme của CV - Đồng bộ tuyệt đối với Struct CvTheme trong Rust
  */
 export interface CvTheme {
   font_family: string;
   font_size: string;
-  line_height: number; // Tương ứng f32 trong Rust
+  line_height: number;
   primary_color: string;
-  template_id: string; // Đồng bộ với template đang sử dụng
+  template_id: string;
   secondary_color?: string;
   background_image?: string;
 }
@@ -19,14 +32,9 @@ export interface CvItem {
   title: string;
   subtitle?: string;
   date?: string;
-  /** Trường quan trọng: Chứa nội dung Rich Text (HTML) từ Editor */
   content?: string;
-  description?: string; // Có thể dùng song song hoặc gộp vào content
+  description?: string;
   link?: string;
-  icon?: string;
-  email?: string;
-  phone?: string;
-  location?: string;
 }
 
 /**
@@ -39,11 +47,6 @@ export type CvSectionType =
   | "education"
   | "skills"
   | "projects"
-  | "awards"
-  | "certs"
-  | "activities"
-  | "references"
-  | "hobbies"
   | "custom";
 
 /**
@@ -55,22 +58,15 @@ export type LayoutColumnId =
   | "rightColumn"
   | "unused";
 
-/**
- * Cấu trúc của một Section lớn
- */
 export interface CvSection {
   id: string;
   type: CvSectionType;
   title: string;
   visible: boolean;
-  /** Cho phép gõ nội dung trực tiếp vào Section (ví dụ: phần Summary) */
   content?: string;
   items: CvItem[];
 }
 
-/**
- * Quản lý vị trí của các Section trong từng cột
- */
 export interface CvLayoutState {
   fullWidth: string[];
   leftColumn: string[];
@@ -83,13 +79,14 @@ export interface CvLayoutState {
  */
 export interface CvLayoutData {
   template_id: string;
+  personalInfo: PersonalInfo;
   theme: CvTheme;
   sections: CvSection[];
   layout: CvLayoutState;
 }
 
 /**
- * Interface đối tượng CV nhận về từ API
+ * Interface đại diện cho một CV hoàn chỉnh từ Database
  */
 export interface Cv {
   id: string;
@@ -101,23 +98,9 @@ export interface Cv {
 }
 
 /**
- * --- API REQUEST INTERFACES ---
- */
-export interface CreateCvRequest {
-  name: string;
-  template_id?: string;
-}
-
-export interface UpdateCvRequest {
-  name?: string;
-  layout_data: CvLayoutData;
-}
-
-/**
- * Interface đầy đủ cho Zustand Store
+ * Interface đầy đủ cho Zustand Store quản lý trạng thái CV
  */
 export interface CvStoreState {
-  // --- State ---
   currentCvId: string | null;
   data: CvLayoutData;
   isSaving: boolean;
@@ -126,19 +109,20 @@ export interface CvStoreState {
   error: string | null;
   lastSaved: Date | null;
 
-  // --- Actions hệ thống ---
+  // Actions hệ thống
   setIsSaving: (isSaving: boolean) => void;
   setInitialData: (data: CvLayoutData) => void;
   fetchCv: (id: string) => Promise<void>;
   saveChanges: () => Promise<void>;
   triggerAutoSave: () => void;
 
-  // --- Actions giao diện ---
+  // Actions chỉnh sửa nội dung
   setTemplateId: (id: string) => void;
   updateTheme: (newTheme: Partial<CvTheme>) => void;
   updateCvField: (field: string, value: any) => void;
+  updatePersonalInfo: (field: keyof PersonalInfo, value: string) => void;
 
-  // --- Actions kéo thả (Core Dnd) ---
+  // Actions cấu trúc layout (DnD)
   reorderSections: (columnId: LayoutColumnId, newIds: string[]) => void;
   moveSection: (
     sectionId: string,
@@ -147,39 +131,50 @@ export interface CvStoreState {
     index: number,
   ) => void;
 
-  // --- Actions chỉnh sửa nội dung ---
+  // Actions quản lý Section
   toggleSectionVisibility: (sectionId: string) => void;
   updateSectionTitle: (sectionId: string, title: string) => void;
-  /** Cập nhật nội dung cho Section (Summary, v.v.) */
   updateSectionContent: (sectionId: string, content: string) => void;
-  /** Cập nhật nội dung cho từng Item */
+
+  // Actions quản lý Item bên trong Section
   updateItemField: (
     sectionId: string,
     itemId: string,
     field: keyof CvItem,
     value: string,
   ) => void;
-
-  // --- Actions thêm/xóa mục ---
   addItem: (sectionId: string) => void;
   removeItem: (sectionId: string, itemId: string) => void;
 }
 
-// --- Dữ liệu mặc định (Default Data) ---
+// --- Dữ liệu mặc định (Khởi tạo khi tạo CV mới) ---
 export const DEFAULT_CV_DATA: CvLayoutData = {
   template_id: "modern-01",
+  personalInfo: {
+    fullName: "NGUYỄN VĂN A",
+    title: "FULLSTACK DEVELOPER",
+    email: "hello@gmail.com",
+    phone: "0123 456 789",
+    address: "Quận 1, TP. Hồ Chí Minh",
+    website: "github.com/nguyenvana",
+  },
   theme: {
     template_id: "modern-01",
     font_family: "Inter",
     font_size: "14px",
     line_height: 1.5,
-    primary_color: "#2563eb",
+    primary_color: "#4f46e5", // Indigo-600
   },
   layout: {
     fullWidth: ["section-header"],
-    leftColumn: ["section-skills", "section-hobbies"],
-    rightColumn: ["section-exp", "section-edu", "section-projects"],
-    unused: ["section-summary", "section-awards", "section-certs"],
+    leftColumn: ["section-skills"],
+    rightColumn: [
+      "section-summary",
+      "section-exp",
+      "section-edu",
+      "section-projects",
+    ],
+    unused: [],
   },
   sections: [
     {
@@ -187,16 +182,16 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
       type: "header",
       title: "Thông tin cá nhân",
       visible: true,
-      items: [
-        {
-          id: "item-header-1",
-          title: "NGUYỄN VĂN A",
-          subtitle: "Fullstack Developer",
-          email: "contact@example.com",
-          phone: "0901.234.567",
-          location: "Hà Nội, Việt Nam",
-        },
-      ],
+      items: [],
+    },
+    {
+      id: "section-summary",
+      type: "summary",
+      title: "Giới thiệu bản thân",
+      visible: true,
+      content:
+        "Viết mục tiêu nghề nghiệp hoặc giới thiệu ngắn về bản thân bạn tại đây...",
+      items: [],
     },
     {
       id: "section-exp",
@@ -205,11 +200,11 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
       visible: true,
       items: [
         {
-          id: "item-exp-1",
-          title: "Senior Developer",
+          id: "exp-1",
+          title: "SENIOR DEVELOPER",
           subtitle: "Công ty Công nghệ ABC",
           date: "2022 - Hiện tại",
-          content: "Phát triển hệ thống microservices sử dụng Rust và React.",
+          description: "Mô tả chi tiết công việc của bạn...",
         },
       ],
     },
@@ -220,11 +215,11 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
       visible: true,
       items: [
         {
-          id: "item-edu-1",
-          title: "Kỹ thuật phần mềm",
+          id: "edu-1",
+          title: "KỸ THUẬT PHẦN MỀM",
           subtitle: "Đại học Sài Gòn",
           date: "2018 - 2022",
-          content: "Tốt nghiệp loại Giỏi, chuyên ngành Công nghệ phần mềm.",
+          description: "Mô tả quá trình học tập hoặc thành tích của bạn...",
         },
       ],
     },
@@ -234,30 +229,9 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
       title: "Kỹ năng",
       visible: true,
       items: [
-        { id: "skill-1", title: "React/TypeScript", content: "Thành thạo" },
-        { id: "skill-2", title: "Rust/Axum", content: "Cơ bản" },
+        { id: "sk-1", title: "React/TypeScript" },
+        { id: "sk-2", title: "Rust/Axum" },
       ],
-    },
-    {
-      id: "section-hobbies",
-      type: "hobbies",
-      title: "Sở thích",
-      visible: true,
-      items: [
-        {
-          id: "hobby-1",
-          title: "Đọc sách",
-          content: "Sách kỹ thuật & phát triển bản thân",
-        },
-      ],
-    },
-    {
-      id: "section-summary",
-      type: "summary",
-      title: "Giới thiệu bản thân",
-      visible: true,
-      content: "Tôi là một lập trình viên đam mê công nghệ...",
-      items: [],
     },
     {
       id: "section-projects",
@@ -266,9 +240,10 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
       visible: true,
       items: [
         {
-          id: "proj-1",
-          title: "Hệ thống quản lý CV",
-          content: "Xây dựng bằng Rust (Axum) và React.",
+          id: "pj-1",
+          title: "HỆ THỐNG QUẢN LÝ CV",
+          date: "2024",
+          description: "Xây dựng hệ thống kéo thả CV chuyên nghiệp...",
         },
       ],
     },

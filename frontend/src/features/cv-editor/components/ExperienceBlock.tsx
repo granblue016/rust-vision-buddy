@@ -13,7 +13,7 @@ export const ExperienceBlock: React.FC<ExperienceBlockProps> = ({
 }) => {
   const { addItem, updateItemField, removeItem } = useCvStore();
 
-  // Guard clause: Nếu section bị ẩn hoặc không tồn tại
+  // Kiểm tra nếu section không tồn tại hoặc bị ẩn thì không render
   if (!section || !section.visible) return null;
 
   return (
@@ -24,7 +24,7 @@ export const ExperienceBlock: React.FC<ExperienceBlockProps> = ({
             key={item.id || idx}
             className="group/item relative pl-10 before:content-[''] before:absolute before:left-[11px] before:top-4 before:bottom-[-40px] before:w-[1.5px] before:bg-slate-100 last:before:hidden transition-all"
           >
-            {/* Nút xóa Item - Hiện khi hover vào từng mục */}
+            {/* Nút xóa Item - Hiện khi hover vào item */}
             <button
               onClick={() => removeItem(section.id, item.id)}
               className="absolute -left-2 top-8 opacity-0 group-hover/item:opacity-100 p-1.5 bg-white border border-red-100 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full shadow-sm transition-all z-20"
@@ -33,7 +33,7 @@ export const ExperienceBlock: React.FC<ExperienceBlockProps> = ({
               <Trash2 size={12} />
             </button>
 
-            {/* Timeline Icon - Briefcase */}
+            {/* Icon Timeline */}
             <div className="absolute left-0 top-1 w-6 h-6 bg-white rounded-full flex items-center justify-center border border-slate-200 shadow-sm z-10 group-hover/item:border-indigo-400 group-hover/item:bg-indigo-50 transition-colors">
               <Briefcase
                 size={11}
@@ -42,7 +42,7 @@ export const ExperienceBlock: React.FC<ExperienceBlockProps> = ({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              {/* Dòng 1: Vị trí công việc & Thời gian làm việc */}
+              {/* Dòng 1: Tiêu đề công việc & Ngày tháng */}
               <div className="flex justify-between items-start gap-4">
                 <div className="flex-1">
                   <InlineRichText
@@ -51,7 +51,7 @@ export const ExperienceBlock: React.FC<ExperienceBlockProps> = ({
                       updateItemField(section.id, item.id, "title", val)
                     }
                     className="text-[16px] font-bold text-slate-800 leading-tight block w-full"
-                    placeholder="Vị trí (ví dụ: Senior Frontend Developer)"
+                    placeholder="Vị trí công việc (VD: Senior Developer)"
                   />
                 </div>
 
@@ -63,12 +63,12 @@ export const ExperienceBlock: React.FC<ExperienceBlockProps> = ({
                       updateItemField(section.id, item.id, "date", val)
                     }
                     className="w-32 text-right bg-transparent uppercase tracking-tighter"
-                    placeholder="01/2022 - HIỆN TẠI"
+                    placeholder="2022 - Hiện tại"
                   />
                 </div>
               </div>
 
-              {/* Dòng 2: Tên công ty / Tổ chức */}
+              {/* Dòng 2: Tên công ty/Tổ chức */}
               <div className="-mt-1">
                 <InlineRichText
                   value={item.subtitle || ""}
@@ -76,19 +76,19 @@ export const ExperienceBlock: React.FC<ExperienceBlockProps> = ({
                     updateItemField(section.id, item.id, "subtitle", val)
                   }
                   className="text-[14px] font-bold text-indigo-600 block w-full"
-                  placeholder="Tên công ty (ví dụ: Google, Inc.)"
+                  placeholder="Tên công ty / Tổ chức"
                 />
               </div>
 
-              {/* Dòng 3: Mô tả chi tiết (Nhiệm vụ & Thành tựu) */}
+              {/* Dòng 3: Mô tả chi tiết - Placeholder đã được làm sạch */}
               <div className="mt-2 opacity-90 group-hover/item:opacity-100 transition-opacity">
                 <InlineRichText
                   value={item.description || ""}
                   onChange={(val) =>
                     updateItemField(section.id, item.id, "description", val)
                   }
-                  className="text-[13px] text-slate-600 leading-relaxed text-justify block w-full min-h-[3em]"
-                  placeholder="• Phát triển tính năng X giúp tăng 20% hiệu suất...&#10;• Quản lý đội ngũ 5 thành viên..."
+                  className="text-[13px] text-slate-600 leading-relaxed text-justify block w-full min-h-[1.5em]"
+                  placeholder="Mô tả chi tiết các thành tựu và công việc của bạn..."
                 />
               </div>
             </div>
@@ -96,7 +96,6 @@ export const ExperienceBlock: React.FC<ExperienceBlockProps> = ({
         ))}
       </div>
 
-      {/* Nút thêm kinh nghiệm mới */}
       <button
         onClick={() => addItem(section.id)}
         className="flex items-center gap-2 px-3 py-2 text-[11px] font-black text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-dashed border-slate-200 hover:border-indigo-200 transition-all ml-10 mt-6 uppercase tracking-[0.1em]"

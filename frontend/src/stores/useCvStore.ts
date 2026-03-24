@@ -5,10 +5,11 @@ import {
   CvStoreState,
   LayoutColumnId,
   CvItem,
+  PersonalInfo,
+  CvTheme,
 } from "../types/cv";
 import { cvService } from "../services/cvService";
 
-// Biến global để quản lý debounce tránh spam API
 let saveTimeout: NodeJS.Timeout;
 
 export const useCvStore = create<CvStoreState>((set, get) => ({
@@ -35,10 +36,14 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       const cv = await cvService.getById(id);
       const incomingData = cv.layout_data || {};
 
-      // Merge sâu để bảo vệ cấu trúc dữ liệu: Đảm bảo UI không vỡ nếu DB cũ thiếu trường
+      // Merge sâu để đảm bảo dữ liệu từ DB không làm mất các trường mới định nghĩa ở Frontend
       const mergedData: CvLayoutData = {
         ...DEFAULT_CV_DATA,
         ...incomingData,
+        personalInfo: {
+          ...DEFAULT_CV_DATA.personalInfo,
+          ...(incomingData.personalInfo || {}),
+        },
         theme: {
           ...DEFAULT_CV_DATA.theme,
           ...(incomingData.theme || {}),
@@ -67,7 +72,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
 
   saveChanges: async () => {
     const { currentCvId, data, isDirty, isSaving } = get();
-    // Chặn lưu nếu: không có ID, dữ liệu chưa đổi (dirty), hoặc đang trong quá trình lưu
     if (!currentCvId || !isDirty || isSaving) return;
 
     set({ isSaving: true });
@@ -79,7 +83,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
         lastSaved: new Date(),
         error: null,
       });
-      console.log("✓ Cloud Synced:", new Date().toLocaleTimeString());
     } catch (err: any) {
       set({
         isSaving: false,
@@ -93,19 +96,29 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     if (saveTimeout) clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
       get().saveChanges();
-    }, 3000); // Đợi 3 giây sau thao tác cuối cùng để lưu tự động
+    }, 3000); // Tự động lưu sau 3 giây nhàn rỗi
   },
 
   // --- ACTIONS CHỈNH SỬA NỘI DUNG ---
 
-  updateCvField: (field, value) => {
+  updatePersonalInfo: (field: keyof PersonalInfo, value: string) => {
+    set((state) => ({
+      data: {
+        ...state.data,
+        personalInfo: { ...state.data.personalInfo, [field]: value },
+      },
+    }));
+    get().triggerAutoSave();
+  },
+
+  updateCvField: (field: string, value: any) => {
     set((state) => ({
       data: { ...state.data, [field]: value },
     }));
     get().triggerAutoSave();
   },
 
-  updateSectionTitle: (sectionId, title) => {
+  updateSectionTitle: (sectionId: string, title: string) => {
     set((state) => ({
       data: {
         ...state.data,
@@ -117,7 +130,7 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  updateSectionContent: (sectionId, content) => {
+  updateSectionContent: (sectionId: string, content: string) => {
     set((state) => ({
       data: {
         ...state.data,
@@ -129,7 +142,12 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  updateItemField: (sectionId, itemId, field, value) => {
+  updateItemField: (
+    sectionId: string,
+    itemId: string,
+    field: keyof CvItem,
+    value: string,
+  ) => {
     set((state) => ({
       data: {
         ...state.data,
@@ -161,7 +179,7 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  updateTheme: (newTheme) => {
+  updateTheme: (newTheme: Partial<CvTheme>) => {
     set((state) => ({
       data: { ...state.data, theme: { ...state.data.theme, ...newTheme } },
     }));
@@ -180,28 +198,35 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  moveSection: (sectionId, sourceCol, destCol, index) => {
+  moveSection: (
+    sectionId: string,
+    sourceCol: LayoutColumnId,
+    destCol: LayoutColumnId,
+    index: number,
+  ) => {
     set((state) => {
       const newLayout = { ...state.data.layout };
+      const sourceList = Array.isArray(newLayout[sourceCol])
+        ? [...newLayout[sourceCol]]
+        : [];
+      const destList = Array.isArray(newLayout[destCol])
+        ? [...newLayout[destCol]]
+        : [];
 
-      // Xóa khỏi cột cũ
-      newLayout[sourceCol] = (newLayout[sourceCol] || []).filter(
-        (id) => id !== sectionId,
-      );
+      const filteredSource = sourceList.filter((id) => id !== sectionId);
+      destList.splice(index, 0, sectionId);
 
-      // Chèn vào vị trí mới ở cột đích
-      const updatedDestCol = [...(newLayout[destCol] || [])];
-      updatedDestCol.splice(index, 0, sectionId);
-      newLayout[destCol] = updatedDestCol;
+      newLayout[sourceCol] = filteredSource;
+      newLayout[destCol] = destList;
 
       return { data: { ...state.data, layout: newLayout } };
     });
     get().triggerAutoSave();
   },
 
-  // --- QUẢN LÝ MỤC (ITEMS) & HIỂN THỊ ---
+  // --- QUẢN LÝ MỤC (ITEMS) ---
 
-  toggleSectionVisibility: (sectionId) => {
+  toggleSectionVisibility: (sectionId: string) => {
     set((state) => ({
       data: {
         ...state.data,
@@ -213,28 +238,26 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  addItem: (sectionId) => {
+  addItem: (sectionId: string) => {
     set((state) => {
       const section = state.data.sections.find((s) => s.id === sectionId);
       if (!section) return state;
 
-      // Tạo item mới với ID chuẩn UUID hoặc fallback timestamp
       const newItem: CvItem = {
-        id:
-          typeof crypto.randomUUID === "function"
-            ? crypto.randomUUID()
-            : `${section.type}-${Date.now()}`,
-        title: "",
-        subtitle: "",
-        date: "",
-        description: "", // Dùng description đồng bộ với InlineRichText
+        id: crypto.randomUUID(),
+        title: "Tiêu đề mới",
+        subtitle: "Mô tả phụ",
+        date: "2024 - Hiện tại",
+        description: "Mô tả chi tiết nội dung...",
       };
 
       return {
         data: {
           ...state.data,
           sections: state.data.sections.map((s) =>
-            s.id === sectionId ? { ...s, items: [...s.items, newItem] } : s,
+            s.id === sectionId
+              ? { ...s, items: [...(s.items || []), newItem] }
+              : s,
           ),
         },
       };
@@ -242,13 +265,16 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  removeItem: (sectionId, itemId) => {
+  removeItem: (sectionId: string, itemId: string) => {
     set((state) => ({
       data: {
         ...state.data,
         sections: state.data.sections.map((s) =>
           s.id === sectionId
-            ? { ...s, items: s.items.filter((i) => i.id !== itemId) }
+            ? {
+                ...s,
+                items: (s.items || []).filter((i) => i.id !== itemId),
+              }
             : s,
         ),
       },

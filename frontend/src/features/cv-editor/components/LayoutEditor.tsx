@@ -6,10 +6,18 @@ import {
   DropResult,
 } from "@hello-pangea/dnd";
 import { useCvStore } from "@/stores/useCvStore";
-import { LayoutColumnId, CvSection, CvItem } from "@/types/cv";
-import { GripVertical, EyeOff, Plus, Calendar, Trash2 } from "lucide-react";
+import { LayoutColumnId, CvSection } from "@/types/cv";
+import {
+  GripVertical,
+  EyeOff,
+  Plus,
+  Calendar,
+  Trash2,
+  Layout,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { InlineRichText } from "./InlineRichText"; // Đảm bảo đường dẫn này đúng
+import { InlineRichText } from "./InlineRichText";
+import { HeaderBlock } from "./HeaderBlock";
 
 const LayoutEditor = () => {
   const { data, moveSection, toggleSectionVisibility } = useCvStore();
@@ -37,15 +45,16 @@ const LayoutEditor = () => {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="space-y-8 p-6 max-w-5xl mx-auto pb-24">
+      <div className="space-y-12 p-8 max-w-[1000px] mx-auto pb-32">
         {/* Tờ giấy A4 Preview */}
-        <div className="bg-white border border-slate-200 rounded-sm shadow-2xl p-12 min-h-[1100px] relative transition-all overflow-hidden font-sans">
-          <div className="absolute top-4 right-4 text-[9px] text-slate-300 font-bold uppercase tracking-[0.2em] select-none">
-            A4 Preview Canvas
+        <div className="bg-white border border-slate-200 shadow-[0_0_50px_rgba(0,0,0,0.1)] min-h-[1123px] relative transition-all overflow-hidden font-sans">
+          {/* Watermark ẩn khi in */}
+          <div className="absolute top-4 right-6 text-[10px] text-slate-300 font-bold uppercase tracking-[0.3em] select-none print:hidden">
+            A4 Canvas
           </div>
 
-          {/* Vùng đầu trang (Full Width) */}
-          <div className="mb-10 group/canvas relative">
+          {/* Vùng Header (Full Width) */}
+          <div className="p-12 pb-0">
             <SectionColumn
               id="fullWidth"
               sectionIds={data.layout.fullWidth}
@@ -54,9 +63,10 @@ const LayoutEditor = () => {
             />
           </div>
 
-          <div className="grid grid-cols-12 gap-10">
-            {/* Cột Trái (Thường là thông tin phụ) */}
-            <div className="col-span-4 border-r border-slate-100 pr-8 space-y-8">
+          {/* Nội dung chính 2 cột */}
+          <div className="grid grid-cols-12 gap-0 px-12 pb-12">
+            {/* Cột Trái (Thường là mục phụ: Kỹ năng, Sở thích) */}
+            <div className="col-span-4 border-r border-slate-100 pr-8 space-y-8 min-h-[800px]">
               <SectionColumn
                 id="leftColumn"
                 sectionIds={data.layout.leftColumn}
@@ -65,8 +75,8 @@ const LayoutEditor = () => {
               />
             </div>
 
-            {/* Cột Phải (Nội dung chính) */}
-            <div className="col-span-8 space-y-10">
+            {/* Cột Phải (Thường là mục chính: Kinh nghiệm, Học vấn) */}
+            <div className="col-span-8 pl-10 space-y-10">
               <SectionColumn
                 id="rightColumn"
                 sectionIds={data.layout.rightColumn}
@@ -77,11 +87,11 @@ const LayoutEditor = () => {
           </div>
         </div>
 
-        {/* KHO LƯU TRỮ SECTION */}
-        <div className="bg-slate-900/5 border-2 border-dashed border-slate-200 rounded-3xl p-8 transition-all">
-          <h3 className="text-sm font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
-            <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse" />
-            Kho lưu trữ Section (Kéo vào để sử dụng)
+        {/* KHO LƯU TRỮ (Dành cho các mục chưa dùng) */}
+        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-8 transition-all">
+          <h3 className="text-xs font-black text-slate-500 uppercase mb-6 flex items-center gap-2 tracking-widest">
+            <Layout size={14} className="text-blue-500" />
+            Các thành phần chưa sử dụng
           </h3>
           <SectionColumn
             id="unused"
@@ -96,17 +106,31 @@ const LayoutEditor = () => {
   );
 };
 
-// --- RENDER NỘI DUNG VỚI INLINE EDITOR ---
+// --- RENDER NỘI DUNG ---
 const SectionRenderer = ({ section }: { section: CvSection }) => {
-  const { updateItemField, updateSectionTitle, addItem, removeItem } =
-    useCvStore();
+  const {
+    updateItemField,
+    updateSectionTitle,
+    addItem,
+    removeItem,
+    updateSectionContent,
+  } = useCvStore();
   const sType = section.type.toLowerCase();
 
-  // Nút thêm Item chung
+  const SectionTitle = () => (
+    <div className="border-b-2 border-slate-900 pb-1 mb-4">
+      <InlineRichText
+        value={section.title}
+        onChange={(val) => updateSectionTitle(section.id, val)}
+        className="text-sm font-black text-slate-900 uppercase tracking-widest"
+      />
+    </div>
+  );
+
   const AddButton = () => (
     <button
       onClick={() => addItem(section.id)}
-      className="mt-4 flex items-center gap-1.5 text-[10px] font-bold text-blue-500/60 hover:text-blue-600 transition-all uppercase tracking-wider"
+      className="mt-4 flex items-center gap-1.5 text-[10px] font-bold text-blue-500/60 hover:text-blue-600 transition-all uppercase tracking-wider group-hover:opacity-100 opacity-0"
     >
       <Plus size={12} strokeWidth={3} /> Thêm {section.title}
     </button>
@@ -114,24 +138,17 @@ const SectionRenderer = ({ section }: { section: CvSection }) => {
 
   switch (sType) {
     case "header":
-      const info = section.items[0] || { id: "header-default" };
+      return <HeaderBlock />;
+
+    case "summary":
       return (
-        <div className="text-center space-y-3 mb-6">
+        <div className="group">
+          <SectionTitle />
           <InlineRichText
-            value={info.title || ""}
-            onChange={(val) =>
-              updateItemField(section.id, info.id, "title", val)
-            }
-            className="text-4xl font-black text-slate-900 uppercase tracking-tighter"
-            placeholder="HỌ TÊN CỦA BẠN"
-          />
-          <InlineRichText
-            value={info.subtitle || ""}
-            onChange={(val) =>
-              updateItemField(section.id, info.id, "subtitle", val)
-            }
-            className="text-sm text-blue-600 font-bold uppercase tracking-[0.3em]"
-            placeholder="VỊ TRÍ ỨNG TUYỂN"
+            value={section.content || ""}
+            onChange={(val) => updateSectionContent(section.id, val)}
+            className="text-[11px] text-slate-600 leading-relaxed text-justify"
+            placeholder="Viết mục tiêu nghề nghiệp..."
           />
         </div>
       );
@@ -140,94 +157,93 @@ const SectionRenderer = ({ section }: { section: CvSection }) => {
     case "education":
     case "projects":
       return (
-        <div className="space-y-6">
-          <div className="border-b-2 border-slate-900 pb-1 flex justify-between items-end">
-            <InlineRichText
-              value={section.title}
-              onChange={(val) => updateSectionTitle(section.id, val)}
-              className="text-sm font-black text-slate-900 uppercase tracking-widest"
-            />
-          </div>
-          {section.items.map((item) => (
-            <div key={item.id} className="group/item relative space-y-1">
-              <button
-                onClick={() => removeItem(section.id, item.id)}
-                className="absolute -left-6 top-1 opacity-0 group-hover/item:opacity-100 p-1 text-slate-300 hover:text-red-500 transition-all"
-              >
-                <Trash2 size={12} />
-              </button>
+        <div className="group">
+          <SectionTitle />
+          <div className="space-y-6">
+            {section.items.map((item) => (
+              <div key={item.id} className="group/item relative space-y-1">
+                <button
+                  onClick={() => removeItem(section.id, item.id)}
+                  className="absolute -left-8 top-1 opacity-0 group-hover/item:opacity-100 p-1.5 text-slate-300 hover:text-red-500 transition-all"
+                >
+                  <Trash2 size={12} />
+                </button>
 
-              <div className="flex justify-between items-start">
-                <InlineRichText
-                  value={item.title || ""}
-                  onChange={(val) =>
-                    updateItemField(section.id, item.id, "title", val)
-                  }
-                  className="font-bold text-[13px] text-slate-800 uppercase flex-1"
-                  placeholder="Tiêu đề mục..."
-                />
-                <div className="flex items-center gap-1 text-slate-400 font-mono text-[10px] shrink-0 mt-1">
-                  <Calendar size={10} />
+                <div className="flex justify-between items-start">
                   <InlineRichText
-                    value={item.date || ""}
-                    onChange={(val) =>
-                      updateItemField(section.id, item.id, "date", val)
+                    value={item.title || ""}
+                    onChange={(v) =>
+                      updateItemField(section.id, item.id, "title", v)
                     }
-                    className="text-right min-w-[80px]"
-                    placeholder="2022 - Hiện tại"
+                    className="font-bold text-[13px] text-slate-800 uppercase flex-1"
+                    placeholder="Tên vị trí/Ngành học"
                   />
+                  <div className="flex items-center gap-1 text-slate-400 font-medium text-[10px] shrink-0 mt-1">
+                    <Calendar size={10} />
+                    <InlineRichText
+                      value={item.date || ""}
+                      onChange={(v) =>
+                        updateItemField(section.id, item.id, "date", v)
+                      }
+                      className="text-right min-w-[70px]"
+                      placeholder="Thời gian"
+                    />
+                  </div>
                 </div>
+
+                <InlineRichText
+                  value={item.subtitle || ""}
+                  onChange={(v) =>
+                    updateItemField(section.id, item.id, "subtitle", v)
+                  }
+                  className="text-[11px] text-blue-600 font-bold italic"
+                  placeholder="Tên công ty/Trường học"
+                />
+
+                <InlineRichText
+                  value={item.description || ""}
+                  onChange={(v) =>
+                    updateItemField(section.id, item.id, "description", v)
+                  }
+                  className="text-[11px] text-slate-600 leading-relaxed text-justify mt-1"
+                  placeholder="Mô tả công việc chi tiết..."
+                />
               </div>
-
-              <InlineRichText
-                value={item.subtitle || ""}
-                onChange={(val) =>
-                  updateItemField(section.id, item.id, "subtitle", val)
-                }
-                className="text-[11px] text-blue-600 font-bold italic -mt-1"
-                placeholder="Tên tổ chức/Công ty..."
-              />
-
-              <InlineRichText
-                value={item.description || ""}
-                onChange={(val) =>
-                  updateItemField(section.id, item.id, "description", val)
-                }
-                className="text-[11px] text-slate-600 leading-relaxed text-justify mt-1"
-                placeholder="Mô tả chi tiết thành tựu của bạn (aaaaaaaaaaaaa)..."
-              />
-            </div>
-          ))}
+            ))}
+          </div>
           <AddButton />
         </div>
       );
 
     case "skills":
       return (
-        <div className="space-y-4">
-          <div className="border-b border-slate-200 pb-1">
-            <InlineRichText
-              value={section.title}
-              onChange={(val) => updateSectionTitle(section.id, val)}
-              className="text-[11px] font-black text-slate-800 uppercase tracking-widest"
-            />
-          </div>
+        <div className="group">
+          <SectionTitle />
           <div className="flex flex-wrap gap-2">
             {section.items.map((s) => (
-              <div key={s.id} className="group/skill relative">
+              <div
+                key={s.id}
+                className="group/skill relative flex items-center"
+              >
                 <InlineRichText
                   value={s.title || ""}
-                  onChange={(val) =>
-                    updateItemField(section.id, s.id, "title", val)
+                  onChange={(v) =>
+                    updateItemField(section.id, s.id, "title", v)
                   }
-                  className="px-2 py-1 bg-slate-50 text-slate-700 border border-slate-200 rounded text-[10px] font-bold hover:border-blue-300 transition-colors"
-                  placeholder="Kỹ năng"
+                  className="px-2 py-1 bg-slate-50 text-slate-700 border border-slate-200 rounded text-[10px] font-bold hover:border-blue-400 transition-colors"
+                  placeholder="Skill"
                 />
+                <button
+                  onClick={() => removeItem(section.id, s.id)}
+                  className="ml-1 opacity-0 group-hover/skill:opacity-100 text-slate-300 hover:text-red-500 transition-all"
+                >
+                  <Trash2 size={10} />
+                </button>
               </div>
             ))}
             <button
               onClick={() => addItem(section.id)}
-              className="p-1 text-blue-400 hover:text-blue-600"
+              className="p-1 text-blue-400 hover:scale-110"
             >
               <Plus size={14} />
             </button>
@@ -240,7 +256,7 @@ const SectionRenderer = ({ section }: { section: CvSection }) => {
   }
 };
 
-// --- COMPONENT HỖ TRỢ DND ---
+// --- DND COMPONENTS ---
 interface ColumnProps {
   id: LayoutColumnId;
   sectionIds: string[];
@@ -266,12 +282,12 @@ const SectionColumn = ({
           {...provided.droppableProps}
           ref={provided.innerRef}
           className={cn(
-            "flex min-h-[40px] transition-all duration-300",
+            "flex transition-all duration-300",
             isHorizontal
-              ? "flex-row flex-wrap gap-3 p-4 bg-white/50 border-2 border-dashed border-slate-200 rounded-2xl"
-              : "flex-col gap-6",
+              ? "flex-row flex-wrap gap-4 min-h-[100px]"
+              : "flex-col gap-8 min-h-[40px]",
             snapshot.isDraggingOver &&
-              "bg-blue-50/30 ring-2 ring-blue-200/50 ring-dashed rounded-xl",
+              "bg-blue-50/50 ring-2 ring-blue-200/50 ring-dashed rounded-xl p-4",
           )}
         >
           {sectionIds.map((sid, index) => {
@@ -285,52 +301,41 @@ const SectionColumn = ({
                     ref={p.innerRef}
                     {...p.draggableProps}
                     className={cn(
-                      "group relative bg-white transition-all",
+                      "group relative bg-white",
                       s.isDragging
-                        ? "shadow-[0_20px_50px_rgba(8,_112,_184,_0.1)] ring-2 ring-blue-500/50 scale-[1.02] z-50 rounded-xl p-4"
-                        : "hover:ring-1 hover:ring-slate-100 rounded-lg",
+                        ? "shadow-2xl ring-2 ring-blue-500 scale-[1.02] z-50 rounded-lg p-4"
+                        : "hover:outline hover:outline-1 hover:outline-blue-100",
                       !section.visible &&
                         id !== "unused" &&
-                        "opacity-30 grayscale blur-[1px]",
+                        "opacity-30 grayscale",
                       id === "unused" &&
-                        "border border-slate-200 p-4 rounded-xl w-48 shadow-sm h-fit bg-white/80",
+                        "border border-slate-200 p-4 rounded-xl w-40 bg-white shadow-sm flex flex-col items-center",
                     )}
                   >
-                    {/* Toolbar điều khiển Section */}
+                    {/* Controls (Grip & Toggle) */}
                     <div className="absolute -top-3 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-[60]">
                       <div
                         {...p.dragHandleProps}
-                        className="p-1.5 bg-white shadow-xl border border-slate-100 rounded-lg text-slate-400 hover:text-blue-600 cursor-grab active:cursor-grabbing"
+                        className="p-1.5 bg-white shadow-md border border-slate-100 rounded text-slate-400 hover:text-blue-600"
                       >
-                        <GripVertical className="w-4 h-4" />
+                        <GripVertical size={14} />
                       </div>
                       <button
-                        type="button"
                         onClick={() => toggleVisibility(sid)}
-                        className={cn(
-                          "p-1.5 bg-white shadow-xl border border-slate-100 rounded-lg transition-colors",
-                          section.visible
-                            ? "text-slate-400 hover:text-red-500"
-                            : "text-blue-500 hover:text-blue-600",
-                        )}
+                        className="p-1.5 bg-white shadow-md border border-slate-100 rounded text-slate-400 hover:text-blue-600"
                       >
                         {section.visible ? (
-                          <EyeOff size={16} />
+                          <EyeOff size={14} />
                         ) : (
-                          <Plus size={16} />
+                          <Plus size={14} />
                         )}
                       </button>
                     </div>
 
                     {id === "unused" ? (
-                      <div className="flex flex-col items-center gap-2 py-2">
-                        <div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 group-hover:text-blue-500 group-hover:bg-blue-50 transition-colors">
-                          <Plus size={20} />
-                        </div>
-                        <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">
-                          {section.title}
-                        </span>
-                      </div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter text-center">
+                        {section.title}
+                      </span>
                     ) : (
                       <SectionRenderer section={section} />
                     )}

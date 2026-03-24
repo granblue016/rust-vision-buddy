@@ -33,10 +33,10 @@ export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
             </button>
 
             {/* Biểu tượng dự án */}
-            <div className="absolute left-0 top-1 w-6 h-6 bg-white rounded-full flex items-center justify-center border border-slate-200 shadow-sm z-10 group-hover/item:border-blue-400 group-hover/item:bg-blue-50 transition-colors">
+            <div className="absolute left-0 top-1 w-6 h-6 bg-white rounded-full flex items-center justify-center border border-slate-200 shadow-sm z-10 group-hover/item:border-indigo-400 group-hover/item:bg-indigo-50 transition-colors">
               <FolderGit2
                 size={11}
-                className="text-slate-500 group-hover/item:text-blue-600"
+                className="text-slate-500 group-hover/item:text-indigo-600"
               />
             </div>
 
@@ -49,8 +49,8 @@ export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
                     onChange={(val) =>
                       updateItemField(section.id, item.id, "title", val)
                     }
-                    className="font-bold text-[15px] text-blue-600 uppercase tracking-wide leading-tight block w-full"
-                    placeholder="TÊN DỰ ÁN"
+                    className="font-bold text-[15px] text-indigo-600 uppercase tracking-wide leading-tight block w-full"
+                    placeholder=""
                   />
                 </div>
 
@@ -62,7 +62,7 @@ export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
                       updateItemField(section.id, item.id, "subtitle", val)
                     }
                     className="w-32 text-right text-[11px] italic text-slate-500 bg-transparent"
-                    placeholder="github.com/link..."
+                    placeholder=""
                   />
                 </div>
               </div>
@@ -74,8 +74,8 @@ export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
                   onChange={(val) =>
                     updateItemField(section.id, item.id, "description", val)
                   }
-                  className="text-[13px] text-slate-600 leading-relaxed text-justify block w-full min-h-[2em]"
-                  placeholder="Mô tả công nghệ sử dụng (React, Rust...), vai trò và thành quả đạt được..."
+                  className="text-[13px] text-slate-600 leading-relaxed text-justify block w-full min-h-[1.5em]"
+                  placeholder=""
                 />
               </div>
             </div>
@@ -86,7 +86,7 @@ export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
       {/* Nút thêm dự án mới */}
       <button
         onClick={() => addItem(section.id)}
-        className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-bold text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-dashed border-slate-200 hover:border-blue-200 transition-all ml-10 mt-4 uppercase tracking-wider"
+        className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-bold text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-dashed border-slate-200 hover:border-indigo-200 transition-all ml-10 mt-4 uppercase tracking-wider"
       >
         <PlusCircle size={14} />
         Thêm dự án mới

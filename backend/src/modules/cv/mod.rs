@@ -1,24 +1,30 @@
 use crate::shared::app_state::AppState;
 use axum::{
-    routing::{delete, get, post, put}, // Thêm put và delete vào import để tường minh
+    routing::{delete, get, post, put},
     Router,
 };
 
+// Khai báo các module con trong cùng thư mục
 pub mod handlers;
 pub mod models;
 
+/// Cấu hình các route cho module quản lý CV
+/// Module này xử lý các tác vụ liên quan đến lưu trữ, truy vấn và cập nhật layout CV
 pub fn routes() -> Router<AppState> {
     Router::new()
-        // 1. Endpoint: /api/v1/cvs
-        // POST: Tạo CV mới (Sẽ sinh UUID mới)
-        // GET: Lấy danh sách CV của người dùng
-        .route("/", post(handlers::create_cv).get(handlers::list_user_cvs))
-        // 2. Endpoint: /api/v1/cvs/:id
-        // :id yêu cầu định dạng UUID 36 ký tự
+        // --- Nhóm 1: Thao tác trên danh sách (Collection) ---
+        // Path: / (thường được nest dưới /api/v1/cvs)
+        .route(
+            "/",
+            post(handlers::create_cv) // POST: Tạo CV mới (Khởi tạo layout mặc định)
+                .get(handlers::list_user_cvs), // GET: Lấy danh sách CV để hiển thị ở Dashboard
+        )
+        // --- Nhóm 2: Thao tác trên từng thực thể (Entity) ---
+        // Path: /:id (Ví dụ: /api/v1/cvs/ad1f7480-38b8-421b-bf3b-a0db13b9fa9e)
         .route(
             "/:id",
-            get(handlers::get_cv_by_id) // Lấy chi tiết CV
-                .put(handlers::update_cv) // CHỈNH SỬA: Dùng PUT thay vì PATCH để khớp với frontend
-                .delete(handlers::delete_cv), // Xóa CV khỏi Database
+            get(handlers::get_cv_by_id) // GET: Lấy chi tiết layout_data để render editor
+                .put(handlers::update_cv) // PUT: Lưu đè toàn bộ layout (Sử dụng cho Auto-save)
+                .delete(handlers::delete_cv), // DELETE: Xóa CV
         )
 }

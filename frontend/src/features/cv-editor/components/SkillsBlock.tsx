@@ -21,16 +21,16 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = ({ section }) => {
         {section.items.map((item: CvItem, idx: number) => (
           <div
             key={item.id || idx}
-            className="group/item relative flex items-center bg-slate-50 hover:bg-white px-3 py-1 rounded-md border border-slate-200 hover:border-blue-400 hover:shadow-sm transition-all duration-200"
+            className="group/item relative flex items-center bg-slate-50 hover:bg-white px-3 py-1 rounded-md border border-slate-200 hover:border-indigo-400 hover:shadow-sm transition-all duration-200"
           >
-            {/* Tên Kỹ năng - Sử dụng InlineRichText mới không còn gạch đỏ props */}
+            {/* Tên Kỹ năng - Đã xóa hoàn toàn placeholder "Kỹ năng..." */}
             <InlineRichText
               value={item.title || ""}
               onChange={(val) =>
                 updateItemField(section.id, item.id, "title", val)
               }
-              className="text-[13px] font-medium text-slate-700 min-w-[40px] leading-none"
-              placeholder="Kỹ năng..."
+              className="text-[13px] font-medium text-slate-700 min-w-[20px] leading-none block"
+              placeholder=""
             />
 
             {/* Nút xóa kỹ năng - Hiện khi hover vào Tag */}
@@ -45,21 +45,21 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = ({ section }) => {
           </div>
         ))}
 
-        {/* Nút thêm mới - Style đồng bộ với các tag kỹ năng */}
+        {/* Nút thêm mới - Style đồng bộ, nhỏ gọn */}
         <button
           type="button"
           onClick={() => addItem(section.id)}
-          className="flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-600 bg-blue-50/50 hover:bg-blue-50 px-3 py-1 rounded-md border border-dashed border-blue-200 transition-colors print:hidden h-[28px] uppercase tracking-wider"
+          className="flex items-center gap-1 text-[10px] font-bold text-indigo-500 hover:text-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 px-2 py-1 rounded-md border border-dashed border-indigo-200 transition-colors print:hidden h-[26px] uppercase tracking-wider"
         >
           <Plus size={12} />
           <span>Thêm</span>
         </button>
       </div>
 
-      {/* Hiển thị thông báo khi danh sách trống */}
+      {/* Thông báo khi trống - Chỉ hiện trong trình chỉnh sửa, không in ra */}
       {section.items.length === 0 && (
-        <p className="text-[12px] text-slate-400 italic py-2">
-          Nhấp vào nút "Thêm" để bắt đầu liệt kê các kỹ năng của bạn...
+        <p className="text-[11px] text-slate-400 italic py-2 print:hidden">
+          Chưa có kỹ năng nào được thêm...
         </p>
       )}
     </div>
