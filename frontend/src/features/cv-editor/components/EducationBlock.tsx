@@ -1,84 +1,110 @@
 import React from "react";
-import { CvSection } from "../../../types/cv";
-import { useCvStore } from "../../../stores/useCvStore";
-import { GraduationCap, Calendar } from "lucide-react";
+import { CvSection, CvItem } from "@/types/cv";
+import { GraduationCap, Calendar, PlusCircle, Trash2 } from "lucide-react";
+import InlineRichText from "./InlineRichText";
+import { useCvStore } from "@/stores/useCvStore";
 
 interface EducationBlockProps {
   section: CvSection;
 }
 
 export const EducationBlock: React.FC<EducationBlockProps> = ({ section }) => {
-  // Lấy hàm update từ store
-  const updateItemField = useCvStore((state) => state.updateItemField);
+  const { addItem, updateItemField, removeItem } = useCvStore();
 
-  if (!section.visible) return null;
+  // Guard clause: Nếu section bị ẩn hoặc không tồn tại
+  if (!section || !section.visible) return null;
 
   return (
-    <div className="space-y-6 py-2">
-      {section.items.map((item) => (
-        <div
-          key={item.id}
-          className="group relative pl-8 before:content-[''] before:absolute before:left-[11px] before:top-3 before:bottom-[-24px] before:w-[1px] before:bg-slate-200 last:before:hidden"
-        >
-          {/* Icon Mũ tốt nghiệp */}
-          <div className="absolute left-0 top-1 w-6 h-6 bg-white rounded-full flex items-center justify-center border border-slate-300 shadow-sm z-10">
-            <GraduationCap size={12} className="text-slate-500" />
-          </div>
+    <div className="space-y-6 py-4 group/section">
+      {/* Danh sách các mục học vấn */}
+      <div className="space-y-8">
+        {section.items.map((item: CvItem, idx: number) => (
+          <div
+            key={item.id || idx}
+            className="group/item relative pl-10 before:content-[''] before:absolute before:left-[11px] before:top-4 before:bottom-[-32px] before:w-[1.5px] before:bg-slate-100 last:before:hidden transition-all"
+          >
+            {/* Nút xóa Item - Hiện khi hover vào từng mục */}
+            <button
+              onClick={() => removeItem(section.id, item.id)}
+              className="absolute -left-2 top-8 opacity-0 group-hover/item:opacity-100 p-1.5 bg-white border border-red-100 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full shadow-sm transition-all z-20"
+              title="Xóa mục này"
+            >
+              <Trash2 size={12} />
+            </button>
 
-          <div className="flex flex-col gap-1">
-            {/* Tên Ngành học / Khóa học */}
-            <div className="flex justify-between items-start gap-4">
-              <input
-                className="w-full font-bold text-[15px] text-slate-800 bg-transparent border-none focus:ring-0 p-0 outline-none placeholder:text-slate-300"
-                value={item.title || ""}
-                onChange={(e) =>
-                  updateItemField(section.id, item.id, "title", e.target.value)
-                }
-                placeholder="Ngành học (ví dụ: Công nghệ thông tin)"
+            {/* Biểu tượng Mũ tốt nghiệp */}
+            <div className="absolute left-0 top-1 w-6 h-6 bg-white rounded-full flex items-center justify-center border border-slate-200 shadow-sm z-10 group-hover/item:border-blue-400 group-hover/item:bg-blue-50 transition-colors">
+              <GraduationCap
+                size={12}
+                className="text-slate-500 group-hover/item:text-blue-600"
               />
+            </div>
 
-              <div className="flex items-center gap-1.5 text-[12px] text-slate-400 font-medium shrink-0 pt-0.5">
-                <Calendar size={12} />
-                <input
-                  className="bg-transparent border-none focus:ring-0 p-0 w-24 text-right outline-none placeholder:text-slate-200"
-                  value={item.date || ""}
-                  onChange={(e) =>
-                    updateItemField(section.id, item.id, "date", e.target.value)
+            <div className="flex flex-col gap-1.5">
+              {/* Dòng 1: Ngành học & Thời gian */}
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex-1">
+                  <InlineRichText
+                    value={item.title || ""}
+                    onChange={(val) =>
+                      updateItemField(section.id, item.id, "title", val)
+                    }
+                    className="font-bold text-[15px] text-slate-800 leading-tight block w-full"
+                    placeholder="Tên ngành học / Khóa đào tạo..."
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono shrink-0 mt-1 bg-slate-50 px-2 py-0.5 rounded border border-transparent group-hover/item:border-slate-100 transition-all">
+                  <Calendar size={10} />
+                  <InlineRichText
+                    value={item.date || ""}
+                    onChange={(val) =>
+                      updateItemField(section.id, item.id, "date", val)
+                    }
+                    className="w-28 text-right bg-transparent uppercase tracking-tighter"
+                    placeholder="MM/YYYY - HIỆN TẠI"
+                  />
+                </div>
+              </div>
+
+              {/* Dòng 2: Tên trường học */}
+              <div className="-mt-0.5">
+                <InlineRichText
+                  value={item.subtitle || ""}
+                  onChange={(val) =>
+                    updateItemField(section.id, item.id, "subtitle", val)
                   }
-                  placeholder="2018 - 2022"
+                  className="text-[13px] text-blue-600 font-bold tracking-wide block w-full"
+                  placeholder="Tên trường đại học / Trung tâm đào tạo..."
+                />
+              </div>
+
+              {/* Dòng 3: GPA hoặc Thành tựu */}
+              <div className="mt-1 opacity-80 group-hover/item:opacity-100 transition-opacity">
+                <InlineRichText
+                  value={item.description || ""}
+                  onChange={(val) =>
+                    updateItemField(section.id, item.id, "description", val)
+                  }
+                  className="text-[12px] text-slate-500 leading-relaxed italic block w-full min-h-[1.5em]"
+                  placeholder="GPA: 3.8/4.0 • Học bổng xuất sắc • Các môn học tiêu biểu..."
                 />
               </div>
             </div>
-
-            {/* Tên Trường học */}
-            <input
-              className="w-full text-[13px] text-blue-600 font-semibold bg-transparent border-none focus:ring-0 p-0 outline-none placeholder:text-blue-200"
-              value={item.subtitle || ""}
-              onChange={(e) =>
-                updateItemField(section.id, item.id, "subtitle", e.target.value)
-              }
-              placeholder="Trường Đại học (ví dụ: ĐH Bách Khoa)"
-            />
-
-            {/* GPA hoặc Mô tả ngắn (Nếu cần) */}
-            {item.description !== undefined && (
-              <input
-                className="w-full text-[12px] text-slate-500 bg-transparent border-none focus:ring-0 p-0 outline-none italic mt-1"
-                value={item.description || ""}
-                onChange={(e) =>
-                  updateItemField(
-                    section.id,
-                    item.id,
-                    "description",
-                    e.target.value,
-                  )
-                }
-                placeholder="GPA: 3.6/4.0 hoặc Giải thưởng..."
-              />
-            )}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+
+      {/* Nút thêm mục mới */}
+      <button
+        onClick={() => addItem(section.id)}
+        className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-bold text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-dashed border-slate-200 hover:border-blue-200 transition-all ml-10 uppercase tracking-wider"
+      >
+        <PlusCircle size={14} />
+        Thêm học vấn mới
+      </button>
     </div>
   );
 };
+
+export default EducationBlock;

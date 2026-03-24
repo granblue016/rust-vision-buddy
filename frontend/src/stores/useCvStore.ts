@@ -4,45 +4,41 @@ import {
   DEFAULT_CV_DATA,
   CvStoreState,
   LayoutColumnId,
-  CvSectionType,
   CvItem,
 } from "../types/cv";
 import { cvService } from "../services/cvService";
 
-const generateId = () => Math.random().toString(36).substring(2, 11);
+// Biến global để quản lý debounce tránh spam API
 let saveTimeout: NodeJS.Timeout;
 
 export const useCvStore = create<CvStoreState>((set, get) => ({
+  // --- STATE BAN ĐẦU ---
   currentCvId: null,
   data: DEFAULT_CV_DATA,
   isSaving: false,
   isLoading: false,
+  isDirty: false,
   error: null,
   lastSaved: null,
 
-  // --- HỆ THỐNG & TỰ ĐỘNG LƯU ---
+  // --- HỆ THỐNG & ĐỒNG BỘ ---
   setIsSaving: (isSaving: boolean) => set({ isSaving }),
 
-  setInitialData: (data: CvLayoutData) => set({ data, isLoading: false }),
-
-  triggerAutoSave: () => {
-    if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => {
-      get().saveChanges();
-    }, 2000); // Tăng lên 2s để tránh spam API khi gõ phím nhanh
-  },
+  setInitialData: (data: CvLayoutData) =>
+    set({ data, isDirty: false, isLoading: false }),
 
   fetchCv: async (id: string) => {
+    if (!id) return;
     set({ isLoading: true, error: null, currentCvId: id });
+
     try {
       const cv = await cvService.getById(id);
-
-      // LOGIC MERGE QUAN TRỌNG: Đảm bảo hiển thị đúng theo cấu trúc cv.ts
       const incomingData = cv.layout_data || {};
 
+      // Merge sâu để bảo vệ cấu trúc dữ liệu: Đảm bảo UI không vỡ nếu DB cũ thiếu trường
       const mergedData: CvLayoutData = {
-        ...DEFAULT_CV_DATA, // 1. Lấy khung mặc định làm gốc
-        ...incomingData, // 2. Ghi đè bằng dữ liệu từ database
+        ...DEFAULT_CV_DATA,
+        ...incomingData,
         theme: {
           ...DEFAULT_CV_DATA.theme,
           ...(incomingData.theme || {}),
@@ -51,17 +47,18 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
           ...DEFAULT_CV_DATA.layout,
           ...(incomingData.layout || {}),
         },
-        // Nếu database có sections thì dùng, không thì dùng mặc định để tránh màn hình trắng
-        sections: incomingData.sections?.length
-          ? incomingData.sections
-          : DEFAULT_CV_DATA.sections,
+        sections:
+          Array.isArray(incomingData.sections) &&
+          incomingData.sections.length > 0
+            ? incomingData.sections
+            : DEFAULT_CV_DATA.sections,
       };
 
-      set({ data: mergedData, isLoading: false });
+      set({ data: mergedData, isLoading: false, isDirty: false });
     } catch (err: any) {
-      // Nếu lỗi (ví dụ 404), dùng dữ liệu mặc định để người dùng vẫn có thể tạo mới
+      console.error("Fetch CV Error:", err);
       set({
-        error: "Không thể tải dữ liệu CV. Đang hiển thị bản nháp mặc định.",
+        error: "Không thể kết nối đến máy chủ. Đang hiển thị dữ liệu mặc định.",
         data: DEFAULT_CV_DATA,
         isLoading: false,
       });
@@ -69,18 +66,38 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
   },
 
   saveChanges: async () => {
-    const { currentCvId, data } = get();
-    if (!currentCvId) return;
+    const { currentCvId, data, isDirty, isSaving } = get();
+    // Chặn lưu nếu: không có ID, dữ liệu chưa đổi (dirty), hoặc đang trong quá trình lưu
+    if (!currentCvId || !isDirty || isSaving) return;
+
     set({ isSaving: true });
     try {
       await cvService.update(currentCvId, { layout_data: data });
-      set({ isSaving: false, lastSaved: new Date() });
+      set({
+        isSaving: false,
+        isDirty: false,
+        lastSaved: new Date(),
+        error: null,
+      });
+      console.log("✓ Cloud Synced:", new Date().toLocaleTimeString());
     } catch (err: any) {
-      set({ isSaving: false, error: err.message });
+      set({
+        isSaving: false,
+        error: "Lưu thất bại: " + (err.message || "Lỗi Server"),
+      });
     }
   },
 
+  triggerAutoSave: () => {
+    set({ isDirty: true });
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      get().saveChanges();
+    }, 3000); // Đợi 3 giây sau thao tác cuối cùng để lưu tự động
+  },
+
   // --- ACTIONS CHỈNH SỬA NỘI DUNG ---
+
   updateCvField: (field, value) => {
     set((state) => ({
       data: { ...state.data, [field]: value },
@@ -94,6 +111,18 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
         ...state.data,
         sections: state.data.sections.map((s) =>
           s.id === sectionId ? { ...s, title } : s,
+        ),
+      },
+    }));
+    get().triggerAutoSave();
+  },
+
+  updateSectionContent: (sectionId, content) => {
+    set((state) => ({
+      data: {
+        ...state.data,
+        sections: state.data.sections.map((s) =>
+          s.id === sectionId ? { ...s, content } : s,
         ),
       },
     }));
@@ -119,13 +148,14 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  // --- QUẢN LÝ BỐ CỤC (DRAG & DROP) ---
-  setTemplateId: (id) => {
+  // --- QUẢN LÝ THEME & LAYOUT ---
+
+  setTemplateId: (id: string) => {
     set((state) => ({
       data: {
         ...state.data,
         template_id: id,
-        theme: { ...state.data.theme, template_id: id }, // Đồng bộ theme
+        theme: { ...state.data.theme, template_id: id },
       },
     }));
     get().triggerAutoSave();
@@ -133,15 +163,14 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
 
   updateTheme: (newTheme) => {
     set((state) => ({
-      data: {
-        ...state.data,
-        theme: { ...state.data.theme, ...newTheme },
-      },
+      data: { ...state.data, theme: { ...state.data.theme, ...newTheme } },
     }));
     get().triggerAutoSave();
   },
 
-  reorderSections: (columnId, newIds) => {
+  // --- ACTIONS KÉO THẢ (DND) ---
+
+  reorderSections: (columnId: LayoutColumnId, newIds: string[]) => {
     set((state) => ({
       data: {
         ...state.data,
@@ -154,11 +183,13 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
   moveSection: (sectionId, sourceCol, destCol, index) => {
     set((state) => {
       const newLayout = { ...state.data.layout };
+
       // Xóa khỏi cột cũ
       newLayout[sourceCol] = (newLayout[sourceCol] || []).filter(
         (id) => id !== sectionId,
       );
-      // Thêm vào cột mới tại vị trí chỉ định
+
+      // Chèn vào vị trí mới ở cột đích
       const updatedDestCol = [...(newLayout[destCol] || [])];
       updatedDestCol.splice(index, 0, sectionId);
       newLayout[destCol] = updatedDestCol;
@@ -167,6 +198,8 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     });
     get().triggerAutoSave();
   },
+
+  // --- QUẢN LÝ MỤC (ITEMS) & HIỂN THỊ ---
 
   toggleSectionVisibility: (sectionId) => {
     set((state) => ({
@@ -180,15 +213,21 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  // --- THÊM/XÓA MỤC CON (ITEMS) ---
-  addItem: (sectionId, type) => {
+  addItem: (sectionId) => {
     set((state) => {
+      const section = state.data.sections.find((s) => s.id === sectionId);
+      if (!section) return state;
+
+      // Tạo item mới với ID chuẩn UUID hoặc fallback timestamp
       const newItem: CvItem = {
-        id: `${type}-${generateId()}`,
-        title: "Tiêu đề mới",
+        id:
+          typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${section.type}-${Date.now()}`,
+        title: "",
         subtitle: "",
         date: "",
-        description: "",
+        description: "", // Dùng description đồng bộ với InlineRichText
       };
 
       return {
