@@ -1,42 +1,95 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* RESET CHO TOÀN BỘ ỨNG DỤNG */
+:root {
+    font-family: "Inter", system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    color-scheme: light dark;
+    background-color: #f8fafc; /* Màu nền nhẹ cho editor */
 }
 
+body {
+    margin: 0;
+    display: flex;
+    place-items: start;
+    min-width: 320px;
+    min-height: 100vh;
+}
+
+/* CẤU HÌNH DÀNH RIÊNG CHO CHẾ ĐỘ PREVIEW & IN PDF */
+#cv-preview {
+    width: 210mm; /* Chiều rộng chuẩn A4 */
+    min-height: 297mm; /* Chiều cao chuẩn A4 */
+    margin: 0 auto;
+    background: white;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    text-align: left; /* Reset lại text-align center từ root */
+    padding: 0;
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* XỬ LÝ NỘI DUNG TỪ RICH TEXT (DangerouslySetInnerHTML) */
+.preview-content p {
+    margin-bottom: 0.75rem;
+    color: #334155;
+}
+
+.preview-content ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.preview-content li {
+    margin-bottom: 0.25rem;
+}
+
+/* THIẾT LẬP QUY TẮC KHI IN (QUAN TRỌNG CHO BACKEND RUST) */
+@media print {
+    @page {
+        size: A4;
+        margin: 0; /* Loại bỏ lề mặc định của Chrome */
+    }
+
+    body {
+        background: none !important;
+        padding: 0 !important;
+    }
+
+    #cv-preview {
+        width: 210mm;
+        height: 297mm;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        overflow: hidden;
+    }
+
+    /* Đảm bảo màu sắc không bị nhạt khi in */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Ẩn các thành phần không cần thiết khi in (nút bấm, scrollbar) */
+    .no-print {
+        display: none !important;
+    }
+}
+
+/* CLASS HỖ TRỢ LAYOUT TRONG CV */
+.cv-section-item {
+    page-break-inside: avoid; /* Tránh việc 1 section bị cắt đôi giữa 2 trang */
+    margin-bottom: 2rem;
+}
+
+/* CSS CHO LOGO (GIỮ LẠI NẾU BẠN CẦN TRANG CHỦ) */
 .logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+    height: 6em;
+    padding: 1.5em;
+    will-change: filter;
+    transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
+    filter: drop-shadow(0 0 2em #646cffaa);
 }

@@ -1,9 +1,8 @@
-import React from "react";
+import React, { forwardRef } from "react";
 import { useCvStore } from "../../stores/useCvStore";
 import ErrorBoundary from "../../shared/components/layout/ErrorBoundary";
 import { LayoutColumnId, CvSection } from "../../types/cv";
 
-// SỬA LỖI IMPORT: Dựa trên lỗi (ts 2613), các component này dùng Named Export { }
 import { ExperienceBlock } from "../../features/cv-editor/components/ExperienceBlock";
 import { EducationBlock } from "../../features/cv-editor/components/EducationBlock";
 import { SkillsBlock } from "../../features/cv-editor/components/SkillsBlock";
@@ -18,7 +17,11 @@ import {
   MapPin,
 } from "lucide-react";
 
-const CVPreview: React.FC = () => {
+// FIX: Định nghĩa Interface trống cho Props nếu bạn không truyền props từ ngoài vào
+interface CVPreviewProps {}
+
+// FIX: forwardRef<Kiểu_Dữ_Liệu_DOM, Kiểu_Dữ_Liệu_Props>
+const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
   const { data, isLoading, error, updateItemField } = useCvStore();
 
   // 1. Loading State
@@ -44,8 +47,7 @@ const CVPreview: React.FC = () => {
           Lỗi hiển thị dữ liệu
         </h3>
         <p className="text-slate-500 text-sm max-w-sm mt-2 mb-6">
-          {error ||
-            "Không tìm thấy cấu trúc CV hợp lệ. Vui lòng thử lại hoặc khởi tạo lại dữ liệu."}
+          {error || "Không tìm thấy cấu trúc CV hợp lệ."}
         </p>
       </div>
     );
@@ -53,9 +55,6 @@ const CVPreview: React.FC = () => {
 
   const { theme, sections, layout } = data;
 
-  /**
-   * Hàm điều hướng render dựa trên TYPE của Section
-   */
   const renderSectionContent = (section: CvSection) => {
     switch (section.type) {
       case "header":
@@ -128,7 +127,7 @@ const CVPreview: React.FC = () => {
                     <input
                       className="bg-transparent border-none p-0 focus:ring-0 w-48"
                       value={item.location || ""}
-                      placeholder="Địa chỉ, Thành phố"
+                      placeholder="Địa chỉ"
                       onChange={(e) =>
                         updateItemField(
                           section.id,
@@ -171,9 +170,7 @@ const CVPreview: React.FC = () => {
   };
 
   const renderColumn = (columnId: LayoutColumnId) => {
-    // SỬA LỖI: Đảm bảo layout tồn tại trước khi map
     const sectionIds = layout?.[columnId] || [];
-
     return sectionIds.map((sId) => {
       const section = sections.find((s) => s.id === sId);
       if (!section || !section.visible) return null;
@@ -208,6 +205,7 @@ const CVPreview: React.FC = () => {
   return (
     <div
       id="cv-preview-root"
+      ref={ref} // BÂY GIỜ REF ĐÃ HỢP LỆ
       className="bg-white shadow-2xl mx-auto my-4 w-[21cm] min-h-[29.7cm] p-[1.5cm] relative transition-all print:shadow-none print:m-0 overflow-hidden text-slate-800"
       style={{
         fontFamily: theme.font_family || "Inter, sans-serif",
@@ -216,23 +214,16 @@ const CVPreview: React.FC = () => {
       }}
     >
       <ErrorBoundary>
-        {/* Render Header (Full Width) */}
         <div className="mb-12">{renderColumn("fullWidth")}</div>
-
-        {/* Layout 2 Cột */}
         <div className="grid grid-cols-12 gap-10">
-          {/* Cột Trái (Sidebar) */}
           <div className="col-span-4">{renderColumn("leftColumn")}</div>
-
-          {/* Cột Phải (Main Content) */}
           <div className="col-span-8 space-y-8 border-l border-slate-100 pl-8">
             {renderColumn("rightColumn")}
           </div>
         </div>
 
-        {/* Overlay khi ẩn hết */}
         {isAllHidden && (
-          <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+          <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-50 print:hidden">
             <EyeOff className="text-slate-300 mb-2" size={48} />
             <p className="text-slate-400 font-medium text-lg">
               Tất cả các mục đang ẩn
@@ -244,14 +235,21 @@ const CVPreview: React.FC = () => {
       <style>{`
         @media print {
           @page { size: A4; margin: 0; }
-          #cv-preview-root { padding: 1.5cm !important; width: 100% !important; height: 100% !important; box-shadow: none !important; }
-          input, textarea { border: none !important; outline: none !important; background: transparent !important; }
+          body { margin: 0; -webkit-print-color-adjust: exact; }
+          #cv-preview-root {
+            padding: 1.5cm !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+          }
+          input::placeholder { color: transparent !important; }
         }
-        /* Ẩn thanh scrollbar khi preview */
-        #cv-preview-root::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   );
-};
+});
+
+CVPreview.displayName = "CVPreview";
 
 export default CVPreview;

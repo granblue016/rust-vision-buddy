@@ -4,29 +4,33 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 // --- 1. REQUEST/RESPONSE STRUCTS ---
+// Đảm bảo các request/response từ API luôn dùng camelCase để khớp với Frontend Axios/Fetch
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateCvRequest {
     pub name: String,
     pub template_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CvResponse {
     pub id: Uuid,
     pub message: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateCvRequest {
     pub name: Option<String>,
     pub layout_data: CvLayoutData,
 }
 
-// --- 2. CORE MODELS ---
+// --- 2. CORE MODELS (Dữ liệu cấu trúc CV) ---
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")] // Sửa lỗi dính tên cũ: full_name -> fullName
 pub struct PersonalInfo {
     #[serde(default)]
     pub full_name: String,
@@ -44,43 +48,59 @@ pub struct PersonalInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")] // Sửa lỗi theme: primary_color -> primaryColor
 pub struct CvTheme {
+    #[serde(default = "default_font_family")]
     pub font_family: String,
+    #[serde(default = "default_font_size")]
     pub font_size: String,
+    #[serde(default = "default_line_height")]
     pub line_height: f32,
+    #[serde(default = "default_primary_color")]
     pub primary_color: String,
+    #[serde(default = "default_template_id")]
     pub template_id: String,
 }
 
 impl Default for CvTheme {
     fn default() -> Self {
         Self {
-            font_family: "Inter".to_string(),
-            font_size: "14px".to_string(),
-            line_height: 1.5,
-            primary_color: "#4f46e5".to_string(),
-            template_id: "modern-01".to_string(),
+            font_family: default_font_family(),
+            font_size: default_font_size(),
+            line_height: default_line_height(),
+            primary_color: default_primary_color(),
+            template_id: default_template_id(),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct CvSectionItem {
-    #[serde(default = "default_id")]
+    #[serde(default = "default_uuid_str")]
     pub id: String,
     #[serde(default)]
     pub title: String,
     pub subtitle: Option<String>,
     pub date: Option<String>,
     pub description: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub location: Option<String>,
+    pub link: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct CvSection {
+    #[serde(default = "default_uuid_str")]
     pub id: String,
-    #[serde(rename = "type")]
+    #[serde(default = "default_section_type")]
+    #[serde(rename = "type")] // Map "type" ở Frontend vào "r#type" ở Rust
     pub r#type: String,
+    #[serde(default)]
     pub title: String,
+    #[serde(default = "default_visible")]
     pub visible: bool,
     pub content: Option<String>,
     #[serde(default)]
@@ -100,9 +120,10 @@ pub struct CvLayoutState {
     pub unused: Vec<String>,
 }
 
-// CHÚ Ý: Đã xóa Default khỏi derive để triển khai thủ công bên dưới
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct CvLayoutData {
+    #[serde(default = "default_template_id")]
     pub template_id: String,
     #[serde(default)]
     pub personal_info: PersonalInfo,
@@ -114,102 +135,21 @@ pub struct CvLayoutData {
     pub layout: CvLayoutState,
 }
 
-/// Khởi tạo dữ liệu mẫu (Seed Data) cho CV mới để tránh lỗi màn hình trắng
 impl Default for CvLayoutData {
     fn default() -> Self {
         Self {
-            template_id: "modern-01".to_string(),
+            template_id: default_template_id(),
             personal_info: PersonalInfo {
-                full_name: "NGUYỄN VĂN A".to_string(),
-                title: "FULLSTACK DEVELOPER".to_string(),
-                email: "hello@gmail.com".to_string(),
-                phone: "0123 456 789".to_string(),
-                address: "Quận 1, TP. Hồ Chí Minh".to_string(),
-                website: "github.com/nguyenvana".to_string(),
+                full_name: "NGUYỄN VĂN A".into(),
+                title: "FULLSTACK DEVELOPER".into(),
+                email: "hello@gmail.com".into(),
+                phone: "0123 456 789".into(),
+                address: "TP. Hồ Chí Minh".into(),
                 ..Default::default()
             },
             theme: CvTheme::default(),
-            sections: vec![
-                CvSection {
-                    id: "section-header".to_string(),
-                    r#type: "header".to_string(),
-                    title: "Thông tin cá nhân".to_string(),
-                    visible: true,
-                    ..Default::default()
-                },
-                CvSection {
-                    id: "section-skills".to_string(),
-                    r#type: "skills".to_string(),
-                    title: "Kỹ năng".to_string(),
-                    visible: true,
-                    items: vec![
-                        CvSectionItem {
-                            id: Uuid::new_v4().to_string(),
-                            title: "React".to_string(),
-                            ..Default::default()
-                        },
-                        CvSectionItem {
-                            id: Uuid::new_v4().to_string(),
-                            title: "Rust".to_string(),
-                            ..Default::default()
-                        },
-                        CvSectionItem {
-                            id: Uuid::new_v4().to_string(),
-                            title: "Python".to_string(),
-                            ..Default::default()
-                        },
-                    ],
-                    ..Default::default()
-                },
-                CvSection {
-                    id: "section-summary".to_string(),
-                    r#type: "summary".to_string(),
-                    title: "Giới thiệu bản thân".to_string(),
-                    visible: true,
-                    content: Some("Tôi là một lập trình viên đam mê học hỏi...".to_string()),
-                    ..Default::default()
-                },
-                CvSection {
-                    id: "section-experience".to_string(),
-                    r#type: "experience".to_string(),
-                    title: "Kinh nghiệm làm việc".to_string(),
-                    visible: true,
-                    items: vec![CvSectionItem {
-                        id: Uuid::new_v4().to_string(),
-                        title: "SENIOR DEVELOPER".to_string(),
-                        subtitle: Some("Công ty ABC".to_string()),
-                        date: Some("2022 - Hiện tại".to_string()),
-                        description: Some(
-                            "Phát triển hệ thống microservices bằng Rust.".to_string(),
-                        ),
-                    }],
-                    ..Default::default()
-                },
-                CvSection {
-                    id: "section-education".to_string(),
-                    r#type: "education".to_string(),
-                    title: "Học vấn".to_string(),
-                    visible: true,
-                    items: vec![CvSectionItem {
-                        id: Uuid::new_v4().to_string(),
-                        title: "KỸ THUẬT PHẦN MỀM".to_string(),
-                        subtitle: Some("Đại học Sài Gòn".to_string()),
-                        date: Some("2018 - 2022".to_string()),
-                        description: Some("Mô tả công việc chi tiết...".to_string()),
-                    }],
-                    ..Default::default()
-                },
-            ],
-            layout: CvLayoutState {
-                full_width: vec!["section-header".to_string()],
-                left_column: vec!["section-skills".to_string()],
-                right_column: vec![
-                    "section-summary".to_string(),
-                    "section-experience".to_string(),
-                    "section-education".to_string(),
-                ],
-                unused: vec![],
-            },
+            sections: vec![],
+            layout: CvLayoutState::default(),
         }
     }
 }
@@ -221,11 +161,35 @@ pub struct Cv {
     pub id: Uuid,
     pub user_id: Uuid,
     pub name: String,
+    // sqlx::types::Json bọc ngoài để SQLx parse cột JSONB tự động
     pub layout_data: sqlx::types::Json<CvLayoutData>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-fn default_id() -> String {
+// --- 4. HELPER FUNCTIONS FOR SERDE DEFAULTS ---
+
+fn default_font_family() -> String {
+    "Inter".into()
+}
+fn default_font_size() -> String {
+    "14px".into()
+}
+fn default_line_height() -> f32 {
+    1.5
+}
+fn default_primary_color() -> String {
+    "#4f46e5".into()
+}
+fn default_template_id() -> String {
+    "modern-01".into()
+}
+fn default_visible() -> bool {
+    true
+}
+fn default_section_type() -> String {
+    "experience".into()
+}
+fn default_uuid_str() -> String {
     Uuid::new_v4().to_string()
 }

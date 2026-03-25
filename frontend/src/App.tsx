@@ -19,6 +19,7 @@ import OAuthCallbackPage from "@/features/auth/pages/OAuthCallbackPage";
 // Core Editor & Features
 import DashboardPage from "@/features/cv-editor/pages/DashboardPage";
 import EditorPage from "@/features/cv-editor/pages/EditorPage";
+import PreviewPage from "@/features/cv-editor/pages/PreviewPage"; // Sử dụng alias @
 import SolutionPage from "@/features/cv-analysis/pages/SolutionPage";
 import WriteMailPage from "@/features/content-generation/pages/WriteMailPage";
 import WriteCoverLetterPage from "@/features/content-generation/pages/WriteCoverLetterPage";
@@ -41,7 +42,7 @@ const App = () => (
 
           <BrowserRouter>
             <Routes>
-              {/* --- Public Routes --- */}
+              {/* --- Public Routes (Truy cập không cần đăng nhập) --- */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/signup" element={<SignUpPage />} />
@@ -49,13 +50,16 @@ const App = () => (
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
 
+              {/* ROUTE DÀNH CHO XUẤT PDF:
+                Đặt ở đây để Headless Chrome (Backend) truy cập thẳng bằng ID
+                mà không bị chặn bởi logic check token của ProtectedRoute.
+              */}
+              <Route path="/preview/:id" element={<PreviewPage />} />
+
               {/* --- Protected Routes (Yêu cầu đăng nhập) --- */}
               <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
-
-                {/* Route Editor chính tích hợp Zustand & Rust Backend */}
                 <Route path="/editor/:id" element={<EditorPage />} />
-
                 <Route path="/solution" element={<SolutionPage />} />
                 <Route path="/write-mail" element={<WriteMailPage />} />
                 <Route
@@ -69,7 +73,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
 
-            {/* Widget AI Assistant */}
+            {/* Widget AI sẽ không hiển thị trên trang Preview nếu bạn xử lý logic ẩn trong chính component Chatbot */}
             <ChatbotWidget />
           </BrowserRouter>
         </TooltipProvider>

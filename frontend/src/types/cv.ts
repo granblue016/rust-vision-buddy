@@ -1,5 +1,6 @@
 /**
- * Thông tin cá nhân tập trung (Header) - Giống cấu trúc TopCV
+ * Thông tin cá nhân tập trung (Header)
+ * Đã chuẩn hóa camelCase để khớp với Store và Backend
  */
 export interface PersonalInfo {
   fullName: string;
@@ -7,25 +8,27 @@ export interface PersonalInfo {
   email: string;
   phone: string;
   address: string;
+  location?: string;
   website: string;
   avatar?: string;
 }
 
 /**
- * Định nghĩa Theme của CV - Đồng bộ tuyệt đối với Struct CvTheme trong Rust
+ * Định nghĩa Theme của CV
+ * Đồng bộ tuyệt đối với Struct CvTheme trong Rust (#[serde(rename_all = "camelCase")])
  */
 export interface CvTheme {
-  font_family: string;
-  font_size: string;
-  line_height: number;
-  primary_color: string;
-  template_id: string;
-  secondary_color?: string;
-  background_image?: string;
+  fontFamily: string;
+  fontSize: string;
+  lineHeight: number;
+  primaryColor: string;
+  templateId: string;
+  secondaryColor?: string;
+  backgroundImage?: string;
 }
 
 /**
- * Đơn vị dữ liệu nhỏ nhất trong một Section
+ * Đơn vị dữ liệu nhỏ nhất trong một Section (Kinh nghiệm, Học vấn, Kỹ năng...)
  */
 export interface CvItem {
   id: string;
@@ -35,10 +38,13 @@ export interface CvItem {
   content?: string;
   description?: string;
   link?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
 }
 
 /**
- * Các loại Section được hỗ trợ
+ * Các loại Section được hỗ trợ trong hệ thống
  */
 export type CvSectionType =
   | "header"
@@ -58,6 +64,9 @@ export type LayoutColumnId =
   | "rightColumn"
   | "unused";
 
+/**
+ * Cấu trúc một Section hoàn chỉnh
+ */
 export interface CvSection {
   id: string;
   type: CvSectionType;
@@ -67,6 +76,9 @@ export interface CvSection {
   items: CvItem[];
 }
 
+/**
+ * Trạng thái sắp xếp của các Section trên giao diện
+ */
 export interface CvLayoutState {
   fullWidth: string[];
   leftColumn: string[];
@@ -75,10 +87,11 @@ export interface CvLayoutState {
 }
 
 /**
- * Dữ liệu layout chính (Lưu dạng JSONB trong Postgres thông qua Rust)
+ * Dữ liệu layout chính (Lưu dạng JSONB trong Postgres)
+ * Đây là trái tim của hệ thống render
  */
 export interface CvLayoutData {
-  template_id: string;
+  templateId: string;
   personalInfo: PersonalInfo;
   theme: CvTheme;
   sections: CvSection[];
@@ -86,7 +99,7 @@ export interface CvLayoutData {
 }
 
 /**
- * Interface đại diện cho một CV hoàn chỉnh từ Database
+ * Interface đại diện cho một thực thể CV từ API
  */
 export interface Cv {
   id: string;
@@ -98,7 +111,21 @@ export interface Cv {
 }
 
 /**
- * Interface đầy đủ cho Zustand Store quản lý trạng thái CV
+ * Request DTOs
+ */
+export interface CreateCvRequest {
+  name: string;
+  templateId: string;
+}
+
+export interface UpdateCvRequest {
+  name?: string;
+  layout_data: CvLayoutData;
+}
+
+/**
+ * Định nghĩa đầy đủ cho Zustand Store
+ * Giúp TypeScript gợi ý code chính xác khi dùng useCvStore()
  */
 export interface CvStoreState {
   currentCvId: string | null;
@@ -115,6 +142,7 @@ export interface CvStoreState {
   fetchCv: (id: string) => Promise<void>;
   saveChanges: () => Promise<void>;
   triggerAutoSave: () => void;
+  exportPdf: () => Promise<void>;
 
   // Actions chỉnh sửa nội dung
   setTemplateId: (id: string) => void;
@@ -136,7 +164,7 @@ export interface CvStoreState {
   updateSectionTitle: (sectionId: string, title: string) => void;
   updateSectionContent: (sectionId: string, content: string) => void;
 
-  // Actions quản lý Item bên trong Section
+  // Actions quản lý Item
   updateItemField: (
     sectionId: string,
     itemId: string,
@@ -147,23 +175,26 @@ export interface CvStoreState {
   removeItem: (sectionId: string, itemId: string) => void;
 }
 
-// --- Dữ liệu mặc định (Khởi tạo khi tạo CV mới) ---
+/**
+ * Dữ liệu khởi tạo mặc định (Fallback data)
+ */
 export const DEFAULT_CV_DATA: CvLayoutData = {
-  template_id: "modern-01",
+  templateId: "modern-01",
   personalInfo: {
     fullName: "NGUYỄN VĂN A",
     title: "FULLSTACK DEVELOPER",
     email: "hello@gmail.com",
     phone: "0123 456 789",
     address: "Quận 1, TP. Hồ Chí Minh",
+    location: "Quận 1, TP. Hồ Chí Minh",
     website: "github.com/nguyenvana",
   },
   theme: {
-    template_id: "modern-01",
-    font_family: "Inter",
-    font_size: "14px",
-    line_height: 1.5,
-    primary_color: "#4f46e5", // Indigo-600
+    templateId: "modern-01",
+    fontFamily: "Inter, sans-serif",
+    fontSize: "14px",
+    lineHeight: 1.5,
+    primaryColor: "#4f46e5",
   },
   layout: {
     fullWidth: ["section-header"],
@@ -182,15 +213,23 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
       type: "header",
       title: "Thông tin cá nhân",
       visible: true,
-      items: [],
+      items: [
+        {
+          id: "header-item-1",
+          title: "NGUYỄN VĂN A",
+          subtitle: "FULLSTACK DEVELOPER",
+          email: "hello@gmail.com",
+          phone: "0123 456 789",
+          location: "Quận 1, TP. Hồ Chí Minh",
+        },
+      ],
     },
     {
       id: "section-summary",
       type: "summary",
       title: "Giới thiệu bản thân",
       visible: true,
-      content:
-        "Viết mục tiêu nghề nghiệp hoặc giới thiệu ngắn về bản thân bạn tại đây...",
+      content: "Viết mục tiêu nghề nghiệp hoặc giới thiệu ngắn...",
       items: [],
     },
     {
@@ -219,7 +258,7 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
           title: "KỸ THUẬT PHẦN MỀM",
           subtitle: "Đại học Sài Gòn",
           date: "2018 - 2022",
-          description: "Mô tả quá trình học tập hoặc thành tích của bạn...",
+          description: "Mô tả quá trình học tập...",
         },
       ],
     },

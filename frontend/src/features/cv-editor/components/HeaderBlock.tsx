@@ -1,94 +1,152 @@
 import React from "react";
 import { Mail, Phone, MapPin, Globe } from "lucide-react";
 import { InlineRichText } from "./InlineRichText";
-import { useCvStore } from "@/stores/useCvStore";
+import { useCvStore } from "../../../stores/useCvStore";
+import { PersonalInfo, CvTheme } from "../../../types/cv";
 
-export const HeaderBlock: React.FC = () => {
-  // Lấy dữ liệu và hàm cập nhật từ zustand store
-  const data = useCvStore((state) => state.data);
+interface HeaderBlockProps {
+  personalInfo?: PersonalInfo;
+  theme?: CvTheme;
+  isPreview?: boolean;
+}
+
+// --- FAIL-SAFE UTILITY ---
+const safeClean = (html: string | undefined, fallback: string): string => {
+  if (!html || html.trim() === "") return fallback;
+  return html
+    .replace(/<\/?[^>]+(>|$)/g, "") // Xóa tất cả các loại thẻ HTML
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .trim();
+};
+
+export const HeaderBlock: React.FC<HeaderBlockProps> = ({
+  personalInfo: propsInfo,
+  theme: propsTheme,
+  isPreview = false,
+}) => {
+  const storeData = useCvStore((state) => state.data);
   const updatePersonalInfo = useCvStore((state) => state.updatePersonalInfo);
 
-  // Đảm bảo có fallback data để không bị trắng màn hình nếu dữ liệu load chậm
-  const { personalInfo } = data;
+  const info = isPreview ? propsInfo : storeData.personalInfo;
+  const theme = isPreview ? propsTheme : storeData.theme;
+
+  if (!info) return null;
+  const primaryColor = theme?.primaryColor || "#4f46e5";
 
   return (
-    <div className="flex flex-col items-center text-center space-y-4 pb-8 border-b-2 border-slate-100 mb-8">
-      {/* 1. HỌ TÊN - Ưu tiên hiển thị to, rõ ràng nhất */}
+    // THÊM ID "main-cv-header" ĐỂ BACKEND PHÂN BIỆT
+    <header
+      id="main-cv-header"
+      className="flex flex-col items-center text-center space-y-4 pb-8 border-b-2 border-slate-100 mb-8 w-full print:border-slate-200 print:mb-6"
+    >
+      {/* 1. HỌ TÊN */}
       <div className="w-full px-4">
-        <InlineRichText
-          value={personalInfo.fullName}
-          onChange={(val) => updatePersonalInfo("fullName", val)}
-          className="text-4xl font-black text-slate-800 uppercase tracking-tight leading-tight outline-none focus:ring-1 focus:ring-indigo-200 rounded-sm transition-all"
-          placeholder="HỌ TÊN CỦA BẠN"
-        />
+        {isPreview ? (
+          <h1 className="text-4xl font-black text-slate-800 uppercase tracking-tight leading-tight">
+            {safeClean(info.fullName, "HỌ TÊN CỦA BẠN")}
+          </h1>
+        ) : (
+          <InlineRichText
+            value={info.fullName || ""}
+            onChange={(val: string) => updatePersonalInfo("fullName", val)}
+            className="text-4xl font-black text-slate-800 uppercase tracking-tight leading-tight outline-none focus:ring-1 focus:ring-indigo-200 rounded-sm transition-all"
+            placeholder="HỌ TÊN CỦA BẠN"
+          />
+        )}
       </div>
 
-      {/* 2. VỊ TRÍ ỨNG TUYỂN - Dùng màu Primary để tạo điểm nhấn */}
+      {/* 2. VỊ TRÍ ỨNG TUYỂN */}
       <div className="w-full px-4">
-        <InlineRichText
-          value={personalInfo.title}
-          onChange={(val) => updatePersonalInfo("title", val)}
-          className="text-lg font-bold text-indigo-600 uppercase tracking-[0.2em] outline-none focus:ring-1 focus:ring-indigo-100 rounded-sm transition-all"
-          placeholder="VỊ TRÍ ỨNG TUYỂN"
-        />
+        {isPreview ? (
+          <p
+            className="text-lg font-bold uppercase tracking-[0.2em]"
+            style={{ color: primaryColor }}
+          >
+            {safeClean(info.title, "VỊ TRÍ ỨNG TUYỂN")}
+          </p>
+        ) : (
+          <div style={{ color: primaryColor }}>
+            <InlineRichText
+              value={info.title || ""}
+              onChange={(val: string) => updatePersonalInfo("title", val)}
+              className="text-lg font-bold uppercase tracking-[0.2em] outline-none focus:ring-1 focus:ring-indigo-100 rounded-sm transition-all w-full text-center"
+              placeholder="VỊ TRÍ ỨNG TUYỂN"
+            />
+          </div>
+        )}
       </div>
 
-      {/* 3. THÔNG TIN LIÊN HỆ (Grid/Flex Row) */}
-      <div className="flex flex-wrap justify-center items-center gap-y-3 gap-x-8 mt-4 text-[13px] text-slate-600 max-w-4xl">
-        {/* Số điện thoại */}
-        <div className="flex items-center gap-2 group/info cursor-text">
-          <div className="p-1 rounded-full bg-slate-50 group-hover/info:bg-indigo-50 transition-colors">
-            <Phone size={14} className="text-indigo-500" />
-          </div>
-          <InlineRichText
-            value={personalInfo.phone}
-            onChange={(val) => updatePersonalInfo("phone", val)}
-            className="min-w-[80px] border-b border-transparent hover:border-slate-300 focus:border-indigo-400"
-            placeholder="Số điện thoại"
-          />
-        </div>
-
-        {/* Email */}
-        <div className="flex items-center gap-2 group/info cursor-text">
-          <div className="p-1 rounded-full bg-slate-50 group-hover/info:bg-indigo-50 transition-colors">
-            <Mail size={14} className="text-indigo-500" />
-          </div>
-          <InlineRichText
-            value={personalInfo.email}
-            onChange={(val) => updatePersonalInfo("email", val)}
-            className="min-w-[120px] border-b border-transparent hover:border-slate-300 focus:border-indigo-400"
-            placeholder="Email liên hệ"
-          />
-        </div>
-
-        {/* Địa chỉ */}
-        <div className="flex items-center gap-2 group/info cursor-text">
-          <div className="p-1 rounded-full bg-slate-50 group-hover/info:bg-indigo-50 transition-colors">
-            <MapPin size={14} className="text-indigo-500" />
-          </div>
-          <InlineRichText
-            value={personalInfo.address}
-            onChange={(val) => updatePersonalInfo("address", val)}
-            className="min-w-[100px] border-b border-transparent hover:border-slate-300 focus:border-indigo-400"
-            placeholder="Địa chỉ"
-          />
-        </div>
-
-        {/* Website / LinkedIn */}
-        <div className="flex items-center gap-2 group/info cursor-text">
-          <div className="p-1 rounded-full bg-slate-50 group-hover/info:bg-indigo-50 transition-colors">
-            <Globe size={14} className="text-indigo-500" />
-          </div>
-          <InlineRichText
-            value={personalInfo.website}
-            onChange={(val) => updatePersonalInfo("website", val)}
-            className="min-w-[100px] border-b border-transparent hover:border-slate-300 focus:border-indigo-400"
+      {/* 3. THÔNG TIN LIÊN HỆ - Thêm class nhận diện đặc thù */}
+      <div className="cv-contact-container flex flex-wrap justify-center items-center gap-y-3 gap-x-8 mt-4 text-[13px] text-slate-600 max-w-4xl">
+        <ContactItem
+          icon={<Phone size={14} style={{ color: primaryColor }} />}
+          value={info.phone}
+          isPreview={isPreview}
+          placeholder="Số điện thoại"
+          onChange={(val: string) => updatePersonalInfo("phone", val)}
+        />
+        <ContactItem
+          icon={<Mail size={14} style={{ color: primaryColor }} />}
+          value={info.email}
+          isPreview={isPreview}
+          placeholder="Email liên hệ"
+          onChange={(val: string) => updatePersonalInfo("email", val)}
+        />
+        <ContactItem
+          icon={<MapPin size={14} style={{ color: primaryColor }} />}
+          value={info.address}
+          isPreview={isPreview}
+          placeholder="Địa chỉ"
+          onChange={(val: string) => updatePersonalInfo("address", val)}
+        />
+        {(info.website || !isPreview) && (
+          <ContactItem
+            icon={<Globe size={14} style={{ color: primaryColor }} />}
+            value={info.website}
+            isPreview={isPreview}
             placeholder="Website/LinkedIn"
+            onChange={(val: string) => updatePersonalInfo("website", val)}
           />
-        </div>
+        )}
       </div>
-    </div>
+    </header>
   );
 };
+
+interface ContactItemProps {
+  icon: React.ReactNode;
+  value?: string;
+  isPreview: boolean;
+  placeholder: string;
+  onChange: (val: string) => void;
+}
+
+const ContactItem: React.FC<ContactItemProps> = ({
+  icon,
+  value,
+  isPreview,
+  placeholder,
+  onChange,
+}) => (
+  <div className="flex items-center gap-2 group/info cursor-text">
+    <div className="p-1 rounded-full bg-slate-50 group-hover/info:bg-indigo-50 transition-colors print:p-0 print:bg-transparent">
+      {icon}
+    </div>
+    {isPreview ? (
+      <span className="print:text-slate-700">
+        {safeClean(value, placeholder)}
+      </span>
+    ) : (
+      <InlineRichText
+        value={value || ""}
+        onChange={onChange}
+        className="min-w-[80px] border-b border-transparent hover:border-slate-300 focus:border-indigo-400"
+        placeholder={placeholder}
+      />
+    )}
+  </div>
+);
 
 export default HeaderBlock;

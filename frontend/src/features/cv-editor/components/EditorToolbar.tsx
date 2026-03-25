@@ -4,21 +4,14 @@ import {
   Loader2,
   Check,
   ArrowLeft,
-  Palette,
   Type,
-  Baseline, // Thay thế TextSize bằng Baseline
+  Baseline,
+  Printer,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCvStore } from "@/stores/useCvStore";
 import { cn } from "@/lib/utils";
-
-const TEMPLATES = [
-  { id: "modern-01", label: "Modern" },
-  { id: "classic-01", label: "Classic" },
-  { id: "minimal-01", label: "Minimal" },
-  { id: "creative-01", label: "Creative" },
-];
 
 const FONTS = [
   { id: "font-inter", label: "Inter", value: "'Inter', sans-serif" },
@@ -43,12 +36,8 @@ interface EditorToolbarProps {
 }
 
 const EditorToolbar = ({ cvName, onSave, isSaving }: EditorToolbarProps) => {
-  const { data, updateTheme, updateCvField } = useCvStore();
-
-  const handleTemplateChange = (templateId: string) => {
-    updateCvField("template_id", templateId);
-    updateTheme({ template_id: templateId });
-  };
+  // Lấy data và các actions từ store
+  const { data, updateTheme, exportPdf } = useCvStore();
 
   if (!data) return null;
 
@@ -65,12 +54,12 @@ const EditorToolbar = ({ cvName, onSave, isSaving }: EditorToolbarProps) => {
 
       <div className="w-px h-6 bg-slate-200 shrink-0" />
 
-      {/* Chọn Font */}
+      {/* Chọn Font - FIX: font_family -> fontFamily */}
       <div className="flex items-center gap-2 ml-2 shrink-0">
         <Type className="w-3.5 h-3.5 text-slate-400" />
         <select
-          value={data.theme.font_family || "'Inter', sans-serif"}
-          onChange={(e) => updateTheme({ font_family: e.target.value })}
+          value={data.theme.fontFamily || "'Inter', sans-serif"}
+          onChange={(e) => updateTheme({ fontFamily: e.target.value })}
           className="text-[11px] bg-slate-50 border border-slate-200 rounded-md px-2 py-1.5 font-bold outline-none hover:bg-slate-100 transition-all cursor-pointer"
         >
           {FONTS.map((f) => (
@@ -81,12 +70,12 @@ const EditorToolbar = ({ cvName, onSave, isSaving }: EditorToolbarProps) => {
         </select>
       </div>
 
-      {/* Chọn Size */}
+      {/* Chọn Size - FIX: font_size -> fontSize */}
       <div className="flex items-center gap-2 ml-2 shrink-0">
         <Baseline className="w-3.5 h-3.5 text-slate-400" />
         <select
-          value={data.theme.font_size || "14px"}
-          onChange={(e) => updateTheme({ font_size: e.target.value })}
+          value={data.theme.fontSize || "14px"}
+          onChange={(e) => updateTheme({ fontSize: e.target.value })}
           className="text-[11px] bg-slate-50 border border-slate-200 rounded-md px-2 py-1.5 font-bold outline-none hover:bg-slate-100 transition-all cursor-pointer"
         >
           {FONT_SIZES.map((s) => (
@@ -97,10 +86,14 @@ const EditorToolbar = ({ cvName, onSave, isSaving }: EditorToolbarProps) => {
         </select>
       </div>
 
-      <div className="flex-1" />
+      <div className="flex-1 text-center">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          {cvName}
+        </span>
+      </div>
 
-      {/* Nút Lưu */}
-      <div className="flex items-center gap-4 shrink-0">
+      {/* Cụm nút thao tác */}
+      <div className="flex items-center gap-3 shrink-0">
         {!isSaving && (
           <span className="hidden lg:flex items-center gap-2 text-[10px] text-emerald-600 font-black bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
             <Check className="w-3 h-3" />
@@ -108,12 +101,31 @@ const EditorToolbar = ({ cvName, onSave, isSaving }: EditorToolbarProps) => {
           </span>
         )}
 
+        {/* NÚT XUẤT PDF */}
+        <Button
+          onClick={exportPdf}
+          disabled={isSaving}
+          variant="outline"
+          size="sm"
+          className="gap-2 h-9 px-4 font-black border-slate-200 hover:bg-slate-50 active:scale-95 transition-all"
+        >
+          {isSaving ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+          ) : (
+            <Printer className="w-3.5 h-3.5 text-slate-500" />
+          )}
+          <span className="text-xs uppercase">
+            {isSaving ? "Processing..." : "Xuất PDF"}
+          </span>
+        </Button>
+
+        {/* NÚT LƯU */}
         <Button
           onClick={onSave}
           disabled={isSaving}
           size="sm"
           className={cn(
-            "gap-2 h-9 px-4 font-black transition-all active:scale-95 shadow-md",
+            "gap-2 h-9 px-4 font-black transition-all active:scale-95 shadow-md shadow-indigo-200/50",
             isSaving
               ? "bg-slate-100 text-slate-400"
               : "bg-indigo-600 text-white hover:bg-indigo-700",
