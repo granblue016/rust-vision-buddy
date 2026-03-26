@@ -2,85 +2,89 @@ import { create } from "zustand";
 import { CvLayoutData, DEFAULT_CV_DATA, CvStoreState } from "../types/cv";
 import { cvService } from "../services/cvService";
 
+const FONT_SIZE_MAP: Record<string, string> = {
+  Nhỏ: "12px",
+  Vừa: "14px",
+  Lớn: "16px",
+};
+
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 /**
- * 1. Làm sạch Text thuần: Xóa thẻ HTML cho các trường không hỗ trợ Rich Text.
+ * HELPER: Chuẩn hóa văn bản
  */
-const cleanPlainText = (html: string | undefined | null): string => {
-  if (!html) return "";
-  return html
+const cleanPlainText = (text: string | undefined | null): string => {
+  if (typeof text !== "string" || !text) return "";
+  return text
     .replace(/<\/?[^>]+(>|$)/g, "")
     .replace(/&nbsp;/g, " ")
     .trim();
 };
 
 /**
- * 2. CHUẨN HÓA DỮ LIỆU GỬI LÊN RUST:
- * Đã thêm trường 'language' để Backend lưu trữ tùy chọn ngôn ngữ.
+ * HELPER: Chuyển chuỗi rỗng về null để khớp với Option<String> trong Rust
+ */
+const toOption = (text: any): string | null => {
+  if (text === undefined || text === null) return null;
+  const cleaned = typeof text === "string" ? text.trim() : String(text).trim();
+  return cleaned === "" ? null : cleaned;
+};
+
+const safeArray = (arr: any) => (Array.isArray(arr) ? arr : []);
+
+/**
+ * CHUẨN HÓA DỮ LIỆU GỬI LÊN RUST - KHỚP 100% MODELS.RS
  */
 const cleanDataForStorage = (data: CvLayoutData): any => {
-  const rawLayout = (data.layout || {}) as any;
-
-  const backendLayout = {
-    fullWidth: Array.isArray(rawLayout.fullWidth)
-      ? rawLayout.fullWidth
-      : rawLayout["column-1"] || [],
-    leftColumn: Array.isArray(rawLayout.leftColumn)
-      ? rawLayout.leftColumn
-      : rawLayout["column-2"] || [],
-    rightColumn: Array.isArray(rawLayout.rightColumn)
-      ? rawLayout.rightColumn
-      : rawLayout["column-3"] || [],
-    unused: Array.isArray(rawLayout.unused) ? rawLayout.unused : [],
-  };
-
   return {
-    templateId: data.theme?.templateId || "modern-01",
-    // QUAN TRỌNG: Lưu tùy chọn ngôn ngữ UI
-    language: data.language || "vi",
+    templateId: data.templateId || "modern-01",
     personalInfo: {
-      fullName: cleanPlainText(data.personalInfo?.fullName),
-      title: cleanPlainText(data.personalInfo?.title),
-      email: cleanPlainText(data.personalInfo?.email),
-      phone: cleanPlainText(data.personalInfo?.phone),
-      address: cleanPlainText(data.personalInfo?.address),
-      website: cleanPlainText(
-        (data.personalInfo as any)?.website || (data.personalInfo as any)?.link,
-      ),
-      avatar: data.personalInfo?.avatar || "",
+      fullName: data.personalInfo?.fullName || "",
+      title: data.personalInfo?.title || "",
+      email: data.personalInfo?.email || "",
+      phone: data.personalInfo?.phone || "",
+      address: data.personalInfo?.address || "",
+      website: data.personalInfo?.website || "",
+      avatar: data.personalInfo?.avatar || null, // Option<String> -> null
     },
     theme: {
-      primaryColor: data.theme?.primaryColor || "#4f46e5",
       fontFamily: data.theme?.fontFamily || "Inter",
-      fontSize: data.theme?.fontSize || "Vừa",
-      lineHeight: Number(data.theme?.lineHeight) || 1.5,
+      fontSize: data.theme?.fontSize || "14px",
+      lineHeight: parseFloat(String(data.theme?.lineHeight || 1.5)),
+      primaryColor: data.theme?.primaryColor || "#4f46e5",
+      templateId: data.theme?.templateId || "modern-01",
     },
-    layout: backendLayout,
     sections: (data.sections || []).map((s) => ({
-      ...s,
-      id: s.id || crypto.randomUUID(),
-      title: s.title, // Giữ nguyên nội dung người dùng nhập
-      content: s.content || "",
+      id: s.id,
+      type: s.type || "experience", // Rust: rename "type"
+      title: s.title || "",
+      visible: Boolean(s.visible),
+      content: s.content || null,
       items: (s.items || []).map((item) => ({
-        ...item,
-        id: item.id || crypto.randomUUID(),
-        title: cleanPlainText(item.title),
-        subtitle: cleanPlainText(item.subtitle),
-        date: cleanPlainText(item.date),
-        description: item.description || "",
+        id: item.id,
+        title: item.title || "",
+        subtitle: item.subtitle || null,
+        date: item.date || null,
+        description: item.description || null,
+        email: item.email || null,
+        phone: item.phone || null,
+        location: item.location || null,
+        link: (item as any).link || null, // Phải có trường link như models.rs
       })),
     })),
+    layout: {
+      // Rust dùng alias "column-1" nhưng vẫn nhận fullWidth do camelCase
+      fullWidth: data.layout?.fullWidth || [],
+      leftColumn: data.layout?.leftColumn || [],
+      rightColumn: data.layout?.rightColumn || [],
+      unused: data.layout?.unused || [],
+    },
   };
 };
 
-// Định nghĩa thêm Action trong Interface nếu TypeScript yêu cầu
-// interface CvStoreState { ... setLanguage: (lang: "vi" | "en") => void; }
-
 export const useCvStore = create<CvStoreState>((set, get) => ({
   currentCvId: null,
-  // Thêm language: "vi" vào dữ liệu mặc định
-  data: { ...JSON.parse(JSON.stringify(DEFAULT_CV_DATA)), language: "vi" },
+  data: JSON.parse(JSON.stringify(DEFAULT_CV_DATA)),
   isSaving: false,
   isLoading: false,
   isDirty: false,
@@ -91,18 +95,13 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
 
   setInitialData: (data: CvLayoutData) =>
     set({
-      data: { ...data, language: data.language || "vi" },
+      data: { ...data },
       isDirty: false,
       isLoading: false,
     }),
 
-  /**
-   * Cập nhật Ngôn ngữ UI (Chỉ đổi nhãn, không dịch nội dung)
-   */
   setLanguage: (lang: "vi" | "en") => {
-    set((state) => ({
-      data: { ...state.data, language: lang },
-    }));
+    set((state) => ({ data: { ...state.data, language: lang } }));
     get().triggerAutoSave();
   },
 
@@ -110,98 +109,73 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     if (!id) return;
     set({ isLoading: true, error: null, currentCvId: id });
     try {
-      const cv = (await cvService.getById(id)) as any;
-      const incoming = cv.layout_data || cv.layoutData || {};
-      const pInfo = incoming.personalInfo || {};
-      const theme = incoming.theme || {};
+      const response = (await cvService.getById(id)) as any;
+      const incoming = response.layout_data || response.layoutData || {};
 
+      // Merge dữ liệu từ Backend về Frontend State
       const mergedData: CvLayoutData = {
         ...DEFAULT_CV_DATA,
         ...incoming,
-        // Đảm bảo language được map từ Backend về
-        language: incoming.language || "vi",
-        templateId:
-          incoming.templateId ||
-          (incoming as any).template_id ||
-          DEFAULT_CV_DATA.theme.templateId,
         personalInfo: {
           ...DEFAULT_CV_DATA.personalInfo,
-          ...pInfo,
-          website: pInfo.website || (pInfo as any).link || "",
+          ...(incoming.personalInfo || {}),
         },
         theme: {
           ...DEFAULT_CV_DATA.theme,
-          ...theme,
-          primaryColor:
-            theme.primaryColor || (theme as any).primary_color || "#4f46e5",
-          fontFamily: theme.fontFamily || (theme as any).font_family || "Inter",
+          ...(incoming.theme || {}),
+          fontSize:
+            Object.keys(FONT_SIZE_MAP).find(
+              (key) => FONT_SIZE_MAP[key] === incoming.theme?.fontSize,
+            ) ||
+            incoming.theme?.fontSize ||
+            "Vừa",
         },
-        layout: incoming.layout || DEFAULT_CV_DATA.layout,
-        sections:
-          Array.isArray(incoming.sections) && incoming.sections.length > 0
-            ? incoming.sections
-            : DEFAULT_CV_DATA.sections,
       };
 
       set({ data: mergedData, isLoading: false, isDirty: false });
     } catch (err) {
-      set({ error: "Lỗi tải dữ liệu", isLoading: false });
+      set({ error: "Không thể tải dữ liệu CV", isLoading: false });
     }
   },
 
+  // Trong hàm saveChanges của useCvStore:
   saveChanges: async () => {
     const { currentCvId, data, isDirty, isSaving } = get();
     if (!currentCvId || !isDirty || isSaving) return;
 
     set({ isSaving: true });
     try {
-      const cleanedData = cleanDataForStorage(data);
-      await cvService.update(currentCvId, { layoutData: cleanedData } as any);
-      set({ isSaving: false, isDirty: false, lastSaved: new Date() });
-    } catch (err) {
-      console.error("Auto-save failed:", err);
-      set({ isSaving: false, error: "Lưu thất bại" });
+      const cleanedLayoutData = cleanDataForStorage(data);
+
+      // CỰC KỲ QUAN TRỌNG:
+      // Struct UpdateCvRequest cũng dùng rename_all = "camelCase"
+      // Nên layout_data phải viết là layoutData
+      const payload = {
+        name: data.personalInfo?.fullName || "Untitled CV",
+        layoutData: cleanedLayoutData, // KHÔNG ĐƯỢC để layout_data
+      };
+
+      await cvService.update(currentCvId, payload as any);
+
+      set({
+        isSaving: false,
+        isDirty: false,
+        lastSaved: new Date(),
+        error: null,
+      });
+    } catch (err: any) {
+      set({ isSaving: false, error: "Lỗi đồng bộ dữ liệu (422)" });
+      console.error(
+        "Payload gửi đi bị lỗi cấu trúc:",
+        cleanDataForStorage(data),
+      );
     }
   },
 
   triggerAutoSave: () => {
     set({ isDirty: true });
     if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => get().saveChanges(), 2000);
-  },
-
-  // ... Các hàm exportPdf, updateCvField, addItem... giữ nguyên như code bạn đã cung cấp
-  exportPdf: async () => {
-    const { currentCvId, isDirty, isSaving } = get();
-    if (!currentCvId) return;
-
-    if (isDirty || isSaving) {
-      if (saveTimeout) clearTimeout(saveTimeout);
-      await get().saveChanges();
-    }
-
-    set({ isSaving: true, error: null });
-    try {
-      const response = await cvService.exportPdf(currentCvId);
-      const blob =
-        response instanceof Blob
-          ? response
-          : new Blob([response as any], { type: "application/pdf" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const safeName = cleanPlainText(
-        get().data.personalInfo?.fullName || "User",
-      ).replace(/\s+/g, "_");
-      link.download = `CV_${safeName}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      set({ isSaving: false });
-    } catch (err) {
-      set({ isSaving: false, error: "Lỗi xuất PDF." });
-    }
+    saveTimeout = setTimeout(() => get().saveChanges(), 1500);
   },
 
   updateCvField: (field, value) => {
@@ -219,54 +193,9 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  addItem: (sectionId) => {
+  updateTheme: (newTheme) => {
     set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId
-            ? {
-                ...s,
-                items: [
-                  ...(s.items || []),
-                  {
-                    id: crypto.randomUUID(),
-                    title: "Mục mới",
-                    subtitle: "",
-                    description: "",
-                    date: "",
-                  },
-                ],
-              }
-            : s,
-        ),
-      },
-    }));
-    get().triggerAutoSave();
-  },
-
-  updateItemField: (sectionId, itemId, field, value) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId
-            ? {
-                ...s,
-                items: (s.items || []).map((i: any) =>
-                  i.id === itemId ? { ...i, [field]: value || "" } : i,
-                ),
-              }
-            : s,
-        ),
-      },
-    }));
-    get().triggerAutoSave();
-  },
-
-  setTemplateId: (id: string) => {
-    set((state) => ({
-      data: { ...state.data, theme: { ...state.data.theme, templateId: id } },
+      data: { ...state.data, theme: { ...state.data.theme, ...newTheme } },
     }));
     get().triggerAutoSave();
   },
@@ -295,12 +224,49 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  toggleSectionVisibility: (sectionId) => {
+  updateItemField: (sectionId, itemId, field, value) => {
     set((state) => ({
       data: {
         ...state.data,
         sections: state.data.sections.map((s) =>
-          s.id === sectionId ? { ...s, visible: !s.visible } : s,
+          s.id === sectionId
+            ? {
+                ...s,
+                items: (s.items || []).map((i) =>
+                  i.id === itemId ? { ...i, [field]: value } : i,
+                ),
+              }
+            : s,
+        ),
+      },
+    }));
+    get().triggerAutoSave();
+  },
+
+  addItem: (sectionId) => {
+    set((state) => ({
+      data: {
+        ...state.data,
+        sections: state.data.sections.map((s) =>
+          s.id === sectionId
+            ? {
+                ...s,
+                items: [
+                  ...(s.items || []),
+                  {
+                    id: crypto.randomUUID(),
+                    title: "Mục mới",
+                    subtitle: "",
+                    date: "",
+                    description: "",
+                    location: "",
+                    email: "",
+                    phone: "",
+                    link: "", // Khởi tạo link
+                  },
+                ],
+              }
+            : s,
         ),
       },
     }));
@@ -313,10 +279,7 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
         ...state.data,
         sections: state.data.sections.map((s) =>
           s.id === sectionId
-            ? {
-                ...s,
-                items: (s.items || []).filter((i: any) => i.id !== itemId),
-              }
+            ? { ...s, items: s.items.filter((i) => i.id !== itemId) }
             : s,
         ),
       },
@@ -324,29 +287,15 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  updateTheme: (newTheme) => {
+  toggleSectionVisibility: (sectionId) => {
     set((state) => ({
-      data: { ...state.data, theme: { ...state.data.theme, ...newTheme } },
+      data: {
+        ...state.data,
+        sections: state.data.sections.map((s) =>
+          s.id === sectionId ? { ...s, visible: !s.visible } : s,
+        ),
+      },
     }));
-    get().triggerAutoSave();
-  },
-
-  moveSection: (sectionId, sourceCol, destCol, index) => {
-    set((state) => {
-      const newLayout = { ...state.data.layout } as any;
-      const sourceList = Array.from(newLayout[sourceCol] || []);
-      const destList =
-        sourceCol === destCol
-          ? sourceList
-          : Array.from(newLayout[destCol] || []);
-      const sourceIndex = sourceList.indexOf(sectionId);
-      if (sourceIndex === -1) return state;
-      sourceList.splice(sourceIndex, 1);
-      destList.splice(index, 0, sectionId);
-      newLayout[sourceCol] = sourceList;
-      newLayout[destCol] = destList;
-      return { data: { ...state.data, layout: newLayout } };
-    });
     get().triggerAutoSave();
   },
 
@@ -357,6 +306,54 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
         layout: { ...state.data.layout, [columnId]: newIds },
       },
     }));
+    get().triggerAutoSave();
+  },
+
+  moveSection: (sectionId, sourceCol, destCol, index) => {
+    set((state) => {
+      const layout = { ...state.data.layout };
+      const sourceList = [...(layout[sourceCol] || [])];
+      const destList =
+        sourceCol === destCol ? sourceList : [...(layout[destCol] || [])];
+      const sourceIdx = sourceList.indexOf(sectionId);
+      if (sourceIdx > -1) {
+        sourceList.splice(sourceIdx, 1);
+        destList.splice(index, 0, sectionId);
+      }
+      return {
+        data: {
+          ...state.data,
+          layout: { ...layout, [sourceCol]: sourceList, [destCol]: destList },
+        },
+      };
+    });
+    get().triggerAutoSave();
+  },
+
+  exportPdf: async () => {
+    const { currentCvId } = get();
+    if (!currentCvId) return;
+    set({ isSaving: true });
+    try {
+      const response = await cvService.exportPdf(currentCvId);
+      const url = window.URL.createObjectURL(new Blob([response as any]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `CV_${get().data.personalInfo.fullName || "Export"}.pdf`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      set({ isSaving: false });
+    } catch (err) {
+      set({ isSaving: false, error: "Lỗi xuất PDF" });
+    }
+  },
+
+  setTemplateId: (id: string) => {
+    set((state) => ({ data: { ...state.data, templateId: id } }));
     get().triggerAutoSave();
   },
 }));

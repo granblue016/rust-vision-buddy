@@ -18,9 +18,9 @@ export interface PersonalInfo {
  * Đồng bộ tuyệt đối với Struct CvTheme trong Rust (#[serde(rename_all = "camelCase")])
  */
 export interface CvTheme {
-  fontFamily: string;
-  fontSize: string;
-  lineHeight: number;
+  fontFamily: string; // Ví dụ: "Inter, sans-serif"
+  fontSize: string; // Ví dụ: "14px"
+  lineHeight: number; // Ví dụ: 1.5
   primaryColor: string;
   templateId: string;
   secondaryColor?: string;
@@ -88,11 +88,10 @@ export interface CvLayoutState {
 
 /**
  * Dữ liệu layout chính (Lưu dạng JSONB trong Postgres)
- * Đã thêm trường language để hỗ trợ đa ngôn ngữ UI
  */
 export interface CvLayoutData {
   templateId: string;
-  language: "vi" | "en"; // Thêm trường ngôn ngữ vào đây
+  language: "vi" | "en";
   personalInfo: PersonalInfo;
   theme: CvTheme;
   sections: CvSection[];
@@ -100,7 +99,7 @@ export interface CvLayoutData {
 }
 
 /**
- * Interface đại diện cho một thực thể CV từ API
+ * Interface đại diện cho một thực thể CV từ API (Model từ DB)
  */
 export interface Cv {
   id: string;
@@ -112,7 +111,7 @@ export interface Cv {
 }
 
 /**
- * Request DTOs
+ * Request DTOs cho API
  */
 export interface CreateCvRequest {
   name: string;
@@ -125,7 +124,7 @@ export interface UpdateCvRequest {
 }
 
 /**
- * Định nghĩa đầy đủ cho Zustand Store
+ * Định nghĩa đầy đủ cho Zustand Store (Kế hoạch quản lý Font/Size)
  */
 export interface CvStoreState {
   currentCvId: string | null;
@@ -147,7 +146,7 @@ export interface CvStoreState {
   // Action chuyển đổi ngôn ngữ
   setLanguage: (lang: "vi" | "en") => void;
 
-  // Actions chỉnh sửa nội dung
+  // Actions chỉnh sửa giao diện (Quan trọng cho Font/Size)
   setTemplateId: (id: string) => void;
   updateTheme: (newTheme: Partial<CvTheme>) => void;
   updateCvField: (field: string, value: any) => void;
@@ -167,7 +166,7 @@ export interface CvStoreState {
   updateSectionTitle: (sectionId: string, title: string) => void;
   updateSectionContent: (sectionId: string, content: string) => void;
 
-  // Actions quản lý Item
+  // Actions quản lý Item bên trong Section
   updateItemField: (
     sectionId: string,
     itemId: string,
@@ -180,10 +179,11 @@ export interface CvStoreState {
 
 /**
  * Dữ liệu khởi tạo mặc định (Fallback data)
+ * Đã thiết lập giá trị mặc định cho Font và Size chữ
  */
 export const DEFAULT_CV_DATA: CvLayoutData = {
   templateId: "modern-01",
-  language: "vi", // Mặc định là tiếng Việt
+  language: "vi",
   personalInfo: {
     fullName: "NGUYỄN VĂN A",
     title: "FULLSTACK DEVELOPER",
@@ -195,8 +195,8 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
   },
   theme: {
     templateId: "modern-01",
-    fontFamily: "Inter, sans-serif",
-    fontSize: "14px",
+    fontFamily: "Inter, sans-serif", // Font mặc định
+    fontSize: "14px", // Size mặc định
     lineHeight: 1.5,
     primaryColor: "#4f46e5",
   },
@@ -228,7 +228,6 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
         },
       ],
     },
-    // ... các sections khác giữ nguyên như cũ
     {
       id: "section-summary",
       type: "summary",

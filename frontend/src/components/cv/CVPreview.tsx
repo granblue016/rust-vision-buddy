@@ -2,7 +2,7 @@ import React, { forwardRef } from "react";
 import { useCvStore } from "../../stores/useCvStore";
 import ErrorBoundary from "../../shared/components/layout/ErrorBoundary";
 import { LayoutColumnId, CvSection } from "../../types/cv";
-
+// Sửa từ "./ExperienceBlock" thành đường dẫn đúng đến feature cv-editor
 import { ExperienceBlock } from "../../features/cv-editor/components/ExperienceBlock";
 import { EducationBlock } from "../../features/cv-editor/components/EducationBlock";
 import { SkillsBlock } from "../../features/cv-editor/components/SkillsBlock";
@@ -17,11 +17,9 @@ import {
   MapPin,
 } from "lucide-react";
 
-// FIX: Định nghĩa Interface trống cho Props nếu bạn không truyền props từ ngoài vào
 interface CVPreviewProps {}
 
-// FIX: forwardRef<Kiểu_Dữ_Liệu_DOM, Kiểu_Dữ_Liệu_Props>
-const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
+const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
   const { data, isLoading, error, updateItemField } = useCvStore();
 
   // 1. Loading State
@@ -77,7 +75,7 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
                 />
                 <input
                   className="w-full text-xl font-semibold bg-transparent border-none text-center focus:ring-0 p-0 mb-4"
-                  style={{ color: theme.primary_color }}
+                  style={{ color: theme.primaryColor }}
                   placeholder="Vị trí ứng tuyển"
                   value={item.subtitle || ""}
                   onChange={(e) =>
@@ -89,11 +87,11 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
                     )
                   }
                 />
-                <div className="flex justify-center flex-wrap gap-x-6 gap-y-2 mt-4 text-[13px] text-slate-600 font-medium">
+                <div className="flex justify-center flex-wrap gap-x-6 gap-y-2 mt-4 text-[0.95em] text-slate-600 font-medium">
                   <span className="flex items-center gap-1.5">
                     <Mail size={14} className="text-slate-400" />
                     <input
-                      className="bg-transparent border-none p-0 focus:ring-0 w-40"
+                      className="bg-transparent border-none p-0 focus:ring-0 w-40 text-inherit"
                       value={item.email || ""}
                       placeholder="email@example.com"
                       onChange={(e) =>
@@ -109,7 +107,7 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
                   <span className="flex items-center gap-1.5">
                     <Phone size={14} className="text-slate-400" />
                     <input
-                      className="bg-transparent border-none p-0 focus:ring-0 w-32"
+                      className="bg-transparent border-none p-0 focus:ring-0 w-32 text-inherit"
                       value={item.phone || ""}
                       placeholder="090 xxx xxxx"
                       onChange={(e) =>
@@ -125,7 +123,7 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
                   <span className="flex items-center gap-1.5">
                     <MapPin size={14} className="text-slate-400" />
                     <input
-                      className="bg-transparent border-none p-0 focus:ring-0 w-48"
+                      className="bg-transparent border-none p-0 focus:ring-0 w-48 text-inherit"
                       value={item.location || ""}
                       placeholder="Địa chỉ"
                       onChange={(e) =>
@@ -157,7 +155,7 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
             {section.items.map((item) => (
               <input
                 key={item.id}
-                className="w-full text-sm bg-transparent border-none focus:ring-0 p-0"
+                className="w-full text-inherit bg-transparent border-none focus:ring-0 p-0"
                 value={item.title || ""}
                 onChange={(e) =>
                   updateItemField(section.id, item.id, "title", e.target.value)
@@ -183,14 +181,17 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
           {section.type !== "header" && (
             <div className="flex items-center gap-3 mb-4">
               <h3
-                className="text-[15px] font-bold uppercase tracking-[0.15em] whitespace-nowrap"
-                style={{ color: theme.primary_color }}
+                className="font-bold uppercase tracking-[0.15em] whitespace-nowrap"
+                style={{
+                  color: theme.primaryColor,
+                  fontSize: "1.1em", // Tiêu đề luôn lớn hơn base font một chút
+                }}
               >
                 {section.title}
               </h3>
               <div
                 className="h-[1px] w-full"
-                style={{ backgroundColor: `${theme.primary_color}40` }}
+                style={{ backgroundColor: `${theme.primaryColor}40` }}
               />
             </div>
           )}
@@ -205,12 +206,12 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
   return (
     <div
       id="cv-preview-root"
-      ref={ref} // BÂY GIỜ REF ĐÃ HỢP LỆ
+      ref={ref}
       className="bg-white shadow-2xl mx-auto my-4 w-[21cm] min-h-[29.7cm] p-[1.5cm] relative transition-all print:shadow-none print:m-0 overflow-hidden text-slate-800"
       style={{
-        fontFamily: theme.font_family || "Inter, sans-serif",
-        fontSize: theme.font_size || "14px",
-        lineHeight: theme.line_height || 1.5,
+        fontFamily: theme.fontFamily || "Inter, sans-serif",
+        fontSize: theme.fontSize || "14px",
+        lineHeight: theme.lineHeight || 1.5,
       }}
     >
       <ErrorBoundary>
@@ -233,6 +234,15 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((props, ref) => {
       </ErrorBoundary>
 
       <style>{`
+        /* Đảm bảo các input kế thừa thuộc tính từ cha để đồng bộ font/size */
+        #cv-preview-root input,
+        #cv-preview-root textarea {
+          font-size: inherit;
+          font-family: inherit;
+          line-height: inherit;
+          color: inherit;
+        }
+
         @media print {
           @page { size: A4; margin: 0; }
           body { margin: 0; -webkit-print-color-adjust: exact; }
