@@ -1,14 +1,18 @@
 import React from "react";
-import { CvSection, CvItem } from "@/types/cv";
+import { CvSection, CvItem } from "../../../types/cv"; // Đã sửa đường dẫn import
 import { FolderGit2, Link as LinkIcon, PlusCircle, Trash2 } from "lucide-react";
 import InlineRichText from "./InlineRichText";
-import { useCvStore } from "@/stores/useCvStore";
+import { useCvStore } from "../../../stores/useCvStore"; // Đã sửa đường dẫn import
 
 interface ProjectsBlockProps {
   section: CvSection;
+  primaryColor?: string; // Nhận màu từ CVPreview truyền xuống
 }
 
-export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
+export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({
+  section,
+  primaryColor = "#6366f1",
+}) => {
   const { addItem, updateItemField, removeItem } = useCvStore();
 
   // Guard clause: Nếu section bị ẩn hoặc không tồn tại
@@ -32,11 +36,11 @@ export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
               <Trash2 size={12} />
             </button>
 
-            {/* Biểu tượng dự án */}
-            <div className="absolute left-0 top-1 w-6 h-6 bg-white rounded-full flex items-center justify-center border border-slate-200 shadow-sm z-10 group-hover/item:border-indigo-400 group-hover/item:bg-indigo-50 transition-colors">
+            {/* Biểu tượng dự án - Đổi màu theo theme */}
+            <div className="absolute left-0 top-1 w-6 h-6 bg-white rounded-full flex items-center justify-center border border-slate-200 shadow-sm z-10 transition-colors">
               <FolderGit2
                 size={11}
-                className="text-slate-500 group-hover/item:text-indigo-600"
+                style={{ color: primaryColor }} // Áp dụng màu chủ đạo cho icon
               />
             </div>
 
@@ -49,20 +53,21 @@ export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
                     onChange={(val) =>
                       updateItemField(section.id, item.id, "title", val)
                     }
-                    className="font-bold text-[15px] text-indigo-600 uppercase tracking-wide leading-tight block w-full"
-                    placeholder=""
+                    className="font-bold text-[15px] uppercase tracking-wide leading-tight block w-full"
+                    style={{ color: primaryColor }} // Tên dự án dùng màu primaryColor
+                    placeholder="Tên dự án (Ví dụ: AI CV Scanner)"
                   />
                 </div>
 
                 <div className="flex items-center gap-1.5 text-slate-400 shrink-0 mt-1 bg-slate-50 px-2 py-0.5 rounded border border-transparent group-hover/item:border-slate-100 transition-all">
-                  <LinkIcon size={10} />
+                  <LinkIcon size={10} style={{ color: primaryColor }} />
                   <InlineRichText
                     value={item.subtitle || ""}
                     onChange={(val) =>
                       updateItemField(section.id, item.id, "subtitle", val)
                     }
                     className="w-32 text-right text-[11px] italic text-slate-500 bg-transparent"
-                    placeholder=""
+                    placeholder="github.com/username/repo"
                   />
                 </div>
               </div>
@@ -75,7 +80,7 @@ export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
                     updateItemField(section.id, item.id, "description", val)
                   }
                   className="text-[13px] text-slate-600 leading-relaxed text-justify block w-full min-h-[1.5em]"
-                  placeholder=""
+                  placeholder="Mô tả công nghệ sử dụng và kết quả đạt được..."
                 />
               </div>
             </div>
@@ -86,9 +91,17 @@ export const ProjectsBlock: React.FC<ProjectsBlockProps> = ({ section }) => {
       {/* Nút thêm dự án mới */}
       <button
         onClick={() => addItem(section.id)}
-        className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-bold text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-dashed border-slate-200 hover:border-indigo-200 transition-all ml-10 mt-4 uppercase tracking-wider"
+        className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-bold text-slate-400 rounded-lg border border-dashed border-slate-200 transition-all ml-10 mt-4 uppercase tracking-wider hover:bg-slate-50"
+        onMouseOver={(e) => {
+          e.currentTarget.style.color = primaryColor;
+          e.currentTarget.style.borderColor = primaryColor;
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.color = "#94a3b8"; // slate-400
+          e.currentTarget.style.borderColor = "#e2e8f0"; // slate-200
+        }}
       >
-        <PlusCircle size={14} />
+        <PlusCircle size={14} style={{ color: primaryColor }} />
         Thêm dự án mới
       </button>
     </div>

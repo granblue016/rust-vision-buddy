@@ -2,7 +2,6 @@ import React, { forwardRef } from "react";
 import { useCvStore } from "../../stores/useCvStore";
 import ErrorBoundary from "../../shared/components/layout/ErrorBoundary";
 import { LayoutColumnId, CvSection } from "../../types/cv";
-// Sửa từ "./ExperienceBlock" thành đường dẫn đúng đến feature cv-editor
 import { ExperienceBlock } from "../../features/cv-editor/components/ExperienceBlock";
 import { EducationBlock } from "../../features/cv-editor/components/EducationBlock";
 import { SkillsBlock } from "../../features/cv-editor/components/SkillsBlock";
@@ -22,11 +21,10 @@ interface CVPreviewProps {}
 const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
   const { data, isLoading, error, updateItemField } = useCvStore();
 
-  // 1. Loading State
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] w-[21cm] mx-auto bg-white shadow-md rounded-xl border-2 border-dashed border-slate-200">
-        <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+        <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" />
         <p className="text-slate-500 font-medium italic">
           Đang kết nối với Rust Backend...
         </p>
@@ -34,17 +32,14 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
     );
   }
 
-  // 2. Error hoặc Data null
   if (error || !data || !data.sections) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] w-[21cm] mx-auto bg-white shadow-md border border-red-100 rounded-xl p-8 text-center">
-        <div className="bg-red-50 p-4 rounded-full mb-4">
-          <AlertCircle className="w-8 h-8 text-red-500" />
-        </div>
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
         <h3 className="text-lg font-bold text-slate-800">
           Lỗi hiển thị dữ liệu
         </h3>
-        <p className="text-slate-500 text-sm max-w-sm mt-2 mb-6">
+        <p className="text-slate-500 text-sm mt-2">
           {error || "Không tìm thấy cấu trúc CV hợp lệ."}
         </p>
       </div>
@@ -53,6 +48,7 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
 
   const { theme, sections, layout } = data;
 
+  // Hàm render nội dung từng section, truyền primaryColor xuống các Block con
   const renderSectionContent = (section: CvSection) => {
     switch (section.type) {
       case "header":
@@ -75,7 +71,7 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
                 />
                 <input
                   className="w-full text-xl font-semibold bg-transparent border-none text-center focus:ring-0 p-0 mb-4"
-                  style={{ color: theme.primaryColor }}
+                  style={{ color: theme.primaryColor }} // Dùng màu từ theme cho Title
                   placeholder="Vị trí ứng tuyển"
                   value={item.subtitle || ""}
                   onChange={(e) =>
@@ -89,9 +85,9 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
                 />
                 <div className="flex justify-center flex-wrap gap-x-6 gap-y-2 mt-4 text-[0.95em] text-slate-600 font-medium">
                   <span className="flex items-center gap-1.5">
-                    <Mail size={14} className="text-slate-400" />
+                    <Mail size={14} style={{ color: theme.primaryColor }} />
                     <input
-                      className="bg-transparent border-none p-0 focus:ring-0 w-40 text-inherit"
+                      className="bg-transparent border-none p-0 focus:ring-0 w-44 text-inherit"
                       value={item.email || ""}
                       placeholder="email@example.com"
                       onChange={(e) =>
@@ -105,11 +101,11 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
                     />
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Phone size={14} className="text-slate-400" />
+                    <Phone size={14} style={{ color: theme.primaryColor }} />
                     <input
                       className="bg-transparent border-none p-0 focus:ring-0 w-32 text-inherit"
                       value={item.phone || ""}
-                      placeholder="090 xxx xxxx"
+                      placeholder="Số điện thoại"
                       onChange={(e) =>
                         updateItemField(
                           section.id,
@@ -121,7 +117,7 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
                     />
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <MapPin size={14} className="text-slate-400" />
+                    <MapPin size={14} style={{ color: theme.primaryColor }} />
                     <input
                       className="bg-transparent border-none p-0 focus:ring-0 w-48 text-inherit"
                       value={item.location || ""}
@@ -142,28 +138,26 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
           </div>
         );
       case "experience":
-        return <ExperienceBlock section={section} />;
-      case "education":
-        return <EducationBlock section={section} />;
-      case "skills":
-        return <SkillsBlock section={section} />;
-      case "projects":
-        return <ProjectsBlock section={section} />;
-      default:
         return (
-          <div className="space-y-2">
-            {section.items.map((item) => (
-              <input
-                key={item.id}
-                className="w-full text-inherit bg-transparent border-none focus:ring-0 p-0"
-                value={item.title || ""}
-                onChange={(e) =>
-                  updateItemField(section.id, item.id, "title", e.target.value)
-                }
-              />
-            ))}
-          </div>
+          <ExperienceBlock
+            section={section}
+            primaryColor={theme.primaryColor}
+          />
         );
+      case "education":
+        return (
+          <EducationBlock section={section} primaryColor={theme.primaryColor} />
+        );
+      case "skills":
+        return (
+          <SkillsBlock section={section} primaryColor={theme.primaryColor} />
+        );
+      case "projects":
+        return (
+          <ProjectsBlock section={section} primaryColor={theme.primaryColor} />
+        );
+      default:
+        return null;
     }
   };
 
@@ -182,10 +176,7 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
             <div className="flex items-center gap-3 mb-4">
               <h3
                 className="font-bold uppercase tracking-[0.15em] whitespace-nowrap"
-                style={{
-                  color: theme.primaryColor,
-                  fontSize: "1.1em", // Tiêu đề luôn lớn hơn base font một chút
-                }}
+                style={{ color: theme.primaryColor, fontSize: "1.1em" }}
               >
                 {section.title}
               </h3>
@@ -201,8 +192,6 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
     });
   };
 
-  const isAllHidden = sections.every((s) => !s.visible);
-
   return (
     <div
       id="cv-preview-root"
@@ -215,45 +204,33 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
       }}
     >
       <ErrorBoundary>
-        <div className="mb-12">{renderColumn("fullWidth")}</div>
+        <div className="mb-12">
+          {renderColumn("fullWidth" as LayoutColumnId)}
+        </div>
         <div className="grid grid-cols-12 gap-10">
-          <div className="col-span-4">{renderColumn("leftColumn")}</div>
+          <div className="col-span-4">
+            {renderColumn("leftColumn" as LayoutColumnId)}
+          </div>
           <div className="col-span-8 space-y-8 border-l border-slate-100 pl-8">
-            {renderColumn("rightColumn")}
+            {renderColumn("rightColumn" as LayoutColumnId)}
           </div>
         </div>
 
-        {isAllHidden && (
-          <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-50 print:hidden">
+        {sections.every((s) => !s.visible) && (
+          <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-50">
             <EyeOff className="text-slate-300 mb-2" size={48} />
-            <p className="text-slate-400 font-medium text-lg">
-              Tất cả các mục đang ẩn
-            </p>
+            <p className="text-slate-400 font-medium">Tất cả các mục đang ẩn</p>
           </div>
         )}
       </ErrorBoundary>
 
       <style>{`
-        /* Đảm bảo các input kế thừa thuộc tính từ cha để đồng bộ font/size */
-        #cv-preview-root input,
-        #cv-preview-root textarea {
-          font-size: inherit;
-          font-family: inherit;
-          line-height: inherit;
-          color: inherit;
+        #cv-preview-root input, #cv-preview-root textarea {
+          font-size: inherit; font-family: inherit; line-height: inherit; color: inherit;
         }
-
         @media print {
           @page { size: A4; margin: 0; }
-          body { margin: 0; -webkit-print-color-adjust: exact; }
-          #cv-preview-root {
-            padding: 1.5cm !important;
-            width: 210mm !important;
-            height: 297mm !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-          }
-          input::placeholder { color: transparent !important; }
+          #cv-preview-root { padding: 1.5cm !important; width: 210mm !important; height: 297mm !important; }
         }
       `}</style>
     </div>
@@ -261,5 +238,4 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
 });
 
 CVPreview.displayName = "CVPreview";
-
 export default CVPreview;

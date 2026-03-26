@@ -2,16 +2,18 @@ import React from "react";
 import { CvSection, CvItem } from "../../../types/cv";
 import { useCvStore } from "../../../stores/useCvStore";
 import { X, Plus } from "lucide-react";
-import { InlineRichText } from "./InlineRichText";
+import InlineRichText from "./InlineRichText"; // Sửa lại import default nếu cần
 
 interface SkillsBlockProps {
   section: CvSection;
   isPreview?: boolean;
+  primaryColor?: string; // Nhận màu từ CVPreview để đồng bộ theme
 }
 
 export const SkillsBlock: React.FC<SkillsBlockProps> = ({
   section,
   isPreview = false,
+  primaryColor = "#6366f1",
 }) => {
   const addItem = useCvStore((state) => state.addItem);
   const updateItemField = useCvStore((state) => state.updateItemField);
@@ -22,13 +24,12 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = ({
 
   /**
    * Làm sạch dữ liệu triệt để cho bản in
-   * Loại bỏ <p>, <span>, &nbsp; và các ký tự trắng dư thừa
    */
   const cleanLabel = (text: string) => {
     if (!text) return "";
     return text
-      .replace(/<[^>]*>/g, "") // Xóa tất cả các thẻ HTML
-      .replace(/&nbsp;/g, " ") // Thay thế khoảng trắng đặc biệt
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
       .trim();
   };
 
@@ -40,14 +41,28 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = ({
             key={item.id || idx}
             className={`group/item relative flex items-center px-3 py-1 rounded-md border transition-all duration-200 break-inside-avoid ${
               !isPreview
-                ? "bg-slate-50 border-slate-200 hover:bg-white hover:border-indigo-400 hover:shadow-sm"
+                ? "bg-slate-50 border-slate-200 hover:bg-white hover:shadow-sm"
                 : "bg-transparent border-slate-100 print:border-none print:px-0 print:py-0"
             }`}
+            style={
+              !isPreview
+                ? {
+                    // Khi hover sẽ đổi màu border theo primaryColor
+                  }
+                : {}
+            }
+            onMouseOver={(e) => {
+              if (!isPreview) e.currentTarget.style.borderColor = primaryColor;
+            }}
+            onMouseOut={(e) => {
+              if (!isPreview) e.currentTarget.style.borderColor = "#e2e8f0"; // border-slate-200
+            }}
           >
             {/* Tên Kỹ năng */}
             {isPreview ? (
               <span
-                className="text-[13px] font-medium text-slate-700 leading-none block print:text-black print:text-[12px]"
+                className="text-[13px] font-medium leading-none block print:text-black print:text-[12px]"
+                style={{ color: "#334155" }} // text-slate-700
                 dangerouslySetInnerHTML={{
                   __html: cleanLabel(item.title || ""),
                 }}
@@ -63,7 +78,7 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = ({
               />
             )}
 
-            {/* Nút xóa - Tự động ẩn khi In (print:hidden) */}
+            {/* Nút xóa */}
             {!isPreview && (
               <button
                 type="button"
@@ -77,12 +92,17 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = ({
           </div>
         ))}
 
-        {/* Nút thêm mới - Thiết kế tinh tế, ẩn khi in */}
+        {/* Nút thêm mới - Đồng bộ màu với primaryColor */}
         {!isPreview && (
           <button
             type="button"
             onClick={() => addItem(section.id)}
-            className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 px-3 py-1 rounded-md border border-dashed border-indigo-300 transition-all print:hidden h-[26px] uppercase tracking-wider active:scale-95"
+            className="flex items-center gap-1 text-[10px] font-bold px-3 py-1 rounded-md border border-dashed transition-all print:hidden h-[26px] uppercase tracking-wider active:scale-95"
+            style={{
+              color: primaryColor,
+              backgroundColor: `${primaryColor}10`, // Thêm 10% opacity cho background
+              borderColor: primaryColor,
+            }}
           >
             <Plus size={12} strokeWidth={3} />
             <span>Thêm kỹ năng</span>
@@ -97,7 +117,6 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = ({
         </p>
       )}
 
-      {/* CSS dành riêng cho khu vực Skills khi In */}
       <style>{`
         @media print {
           .group\\/skills-container {
@@ -108,8 +127,6 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = ({
             break-inside: avoid;
             display: inline-block;
           }
-          /* Nếu muốn kỹ năng dạng danh sách cách nhau dấu phẩy thay vì khung */
-          /* .group\\/item:not(:last-child):after { content: ", "; } */
         }
       `}</style>
     </div>

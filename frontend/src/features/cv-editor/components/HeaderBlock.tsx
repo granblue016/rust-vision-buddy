@@ -1,6 +1,6 @@
 import React from "react";
 import { Mail, Phone, MapPin, Globe } from "lucide-react";
-import { InlineRichText } from "./InlineRichText";
+import InlineRichText from "./InlineRichText"; // Chỉnh lại import default
 import { useCvStore } from "../../../stores/useCvStore";
 import { PersonalInfo, CvTheme } from "../../../types/cv";
 
@@ -8,13 +8,13 @@ interface HeaderBlockProps {
   personalInfo?: PersonalInfo;
   theme?: CvTheme;
   isPreview?: boolean;
+  primaryColor?: string; // Thêm prop này để đồng bộ với CVPreview
 }
 
-// --- FAIL-SAFE UTILITY ---
 const safeClean = (html: string | undefined, fallback: string): string => {
   if (!html || html.trim() === "") return fallback;
   return html
-    .replace(/<\/?[^>]+(>|$)/g, "") // Xóa tất cả các loại thẻ HTML
+    .replace(/<\/?[^>]+(>|$)/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -25,18 +25,21 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
   personalInfo: propsInfo,
   theme: propsTheme,
   isPreview = false,
+  primaryColor: propsColor, // Nhận màu từ prop truyền xuống
 }) => {
   const storeData = useCvStore((state) => state.data);
   const updatePersonalInfo = useCvStore((state) => state.updatePersonalInfo);
 
+  // Ưu tiên dùng dữ liệu từ props (khi Preview/In) hoặc từ Store (khi Edit)
   const info = isPreview ? propsInfo : storeData.personalInfo;
   const theme = isPreview ? propsTheme : storeData.theme;
 
+  // Xác định màu chủ đạo cuối cùng
+  const primaryColor = propsColor || theme?.primaryColor || "#4f46e5";
+
   if (!info) return null;
-  const primaryColor = theme?.primaryColor || "#4f46e5";
 
   return (
-    // THÊM ID "main-cv-header" ĐỂ BACKEND PHÂN BIỆT
     <header
       id="main-cv-header"
       className="flex flex-col items-center text-center space-y-4 pb-8 border-b-2 border-slate-100 mb-8 w-full print:border-slate-200 print:mb-6"
@@ -57,7 +60,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
         )}
       </div>
 
-      {/* 2. VỊ TRÍ ỨNG TUYỂN */}
+      {/* 2. VỊ TRÍ ỨNG TUYỂN - Sử dụng primaryColor */}
       <div className="w-full px-4">
         {isPreview ? (
           <p
@@ -78,7 +81,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
         )}
       </div>
 
-      {/* 3. THÔNG TIN LIÊN HỆ - Thêm class nhận diện đặc thù */}
+      {/* 3. THÔNG TIN LIÊN HỆ */}
       <div className="cv-contact-container flex flex-wrap justify-center items-center gap-y-3 gap-x-8 mt-4 text-[13px] text-slate-600 max-w-4xl">
         <ContactItem
           icon={<Phone size={14} style={{ color: primaryColor }} />}
