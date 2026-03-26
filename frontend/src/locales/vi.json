@@ -1,0 +1,35 @@
+{
+  "common": {
+    "dashboard": "Dashboard",
+    "synced": "ĐÃ ĐỒNG BỘ",
+    "syncing": "Đang đồng bộ...",
+    "error": "Lỗi kết nối",
+    "save": "LƯU",
+    "export_pdf": "XUẤT PDF"
+  },
+  "toolbar": {
+    "font_family": "Phông chữ",
+    "font_size": "Kích cỡ",
+    "language": "Ngôn ngữ"
+  },
+  "sidebar": {
+    "title": "CẤU TRÚC CV",
+    "description": "Kéo thả để sắp xếp",
+    "zones": {
+      "header": "VÙNG ĐẦU TRANG (100%)",
+      "left": "CỘT TRÁI (33%)",
+      "right": "CỘT PHẢI (66%)",
+      "archive": "KHO MỤC LƯU TRỮ"
+    },
+    "blocks": {
+      "header": "Thông tin cá nhân",
+      "skills": "Kỹ năng",
+      "summary": "Giới thiệu",
+      "experience": "Kinh nghiệm làm việc",
+      "education": "Học vấn",
+      "projects": "Dự án",
+      "empty": "Trống"
+    },
+    "footer": "Đồng bộ thời gian thực với Rust"
+  }
+}

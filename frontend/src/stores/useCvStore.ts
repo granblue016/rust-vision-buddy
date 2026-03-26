@@ -16,13 +16,12 @@ const cleanPlainText = (html: string | undefined | null): string => {
 };
 
 /**
- * 2. CHUẨN HÓA DỮ LIỆU GỬI LÊN RUST (CAMEL CASE):
- * Khớp hoàn toàn với SQL Migration và UpdateCvRequest.
+ * 2. CHUẨN HÓA DỮ LIỆU GỬI LÊN RUST:
+ * Đã thêm trường 'language' để Backend lưu trữ tùy chọn ngôn ngữ.
  */
 const cleanDataForStorage = (data: CvLayoutData): any => {
   const rawLayout = (data.layout || {}) as any;
 
-  // Chuyển đổi linh hoạt giữa cấu trúc Frontend (column-1) và cấu trúc Backend (fullWidth)
   const backendLayout = {
     fullWidth: Array.isArray(rawLayout.fullWidth)
       ? rawLayout.fullWidth
@@ -38,6 +37,8 @@ const cleanDataForStorage = (data: CvLayoutData): any => {
 
   return {
     templateId: data.theme?.templateId || "modern-01",
+    // QUAN TRỌNG: Lưu tùy chọn ngôn ngữ UI
+    language: data.language || "vi",
     personalInfo: {
       fullName: cleanPlainText(data.personalInfo?.fullName),
       title: cleanPlainText(data.personalInfo?.title),
@@ -59,7 +60,7 @@ const cleanDataForStorage = (data: CvLayoutData): any => {
     sections: (data.sections || []).map((s) => ({
       ...s,
       id: s.id || crypto.randomUUID(),
-      title: cleanPlainText(s.title),
+      title: s.title, // Giữ nguyên nội dung người dùng nhập
       content: s.content || "",
       items: (s.items || []).map((item) => ({
         ...item,
@@ -73,9 +74,13 @@ const cleanDataForStorage = (data: CvLayoutData): any => {
   };
 };
 
+// Định nghĩa thêm Action trong Interface nếu TypeScript yêu cầu
+// interface CvStoreState { ... setLanguage: (lang: "vi" | "en") => void; }
+
 export const useCvStore = create<CvStoreState>((set, get) => ({
   currentCvId: null,
-  data: JSON.parse(JSON.stringify(DEFAULT_CV_DATA)),
+  // Thêm language: "vi" vào dữ liệu mặc định
+  data: { ...JSON.parse(JSON.stringify(DEFAULT_CV_DATA)), language: "vi" },
   isSaving: false,
   isLoading: false,
   isDirty: false,
@@ -85,22 +90,36 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
   setIsSaving: (isSaving: boolean) => set({ isSaving }),
 
   setInitialData: (data: CvLayoutData) =>
-    set({ data: data, isDirty: false, isLoading: false }),
+    set({
+      data: { ...data, language: data.language || "vi" },
+      isDirty: false,
+      isLoading: false,
+    }),
+
+  /**
+   * Cập nhật Ngôn ngữ UI (Chỉ đổi nhãn, không dịch nội dung)
+   */
+  setLanguage: (lang: "vi" | "en") => {
+    set((state) => ({
+      data: { ...state.data, language: lang },
+    }));
+    get().triggerAutoSave();
+  },
 
   fetchCv: async (id: string) => {
     if (!id) return;
     set({ isLoading: true, error: null, currentCvId: id });
     try {
       const cv = (await cvService.getById(id)) as any;
-      // Dữ liệu từ Rust có thể nằm trong layout_data hoặc layoutData
       const incoming = cv.layout_data || cv.layoutData || {};
       const pInfo = incoming.personalInfo || {};
       const theme = incoming.theme || {};
 
-      // MAP NGƯỢC: Chống lỗi Property does not exist (ts 2551)
       const mergedData: CvLayoutData = {
         ...DEFAULT_CV_DATA,
         ...incoming,
+        // Đảm bảo language được map từ Backend về
+        language: incoming.language || "vi",
         templateId:
           incoming.templateId ||
           (incoming as any).template_id ||
@@ -137,9 +156,7 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     set({ isSaving: true });
     try {
       const cleanedData = cleanDataForStorage(data);
-      // Ép kiểu để khớp với UpdateCvRequest của Rust
       await cvService.update(currentCvId, { layoutData: cleanedData } as any);
-
       set({ isSaving: false, isDirty: false, lastSaved: new Date() });
     } catch (err) {
       console.error("Auto-save failed:", err);
@@ -153,6 +170,7 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     saveTimeout = setTimeout(() => get().saveChanges(), 2000);
   },
 
+  // ... Các hàm exportPdf, updateCvField, addItem... giữ nguyên như code bạn đã cung cấp
   exportPdf: async () => {
     const { currentCvId, isDirty, isSaving } = get();
     if (!currentCvId) return;
@@ -186,7 +204,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     }
   },
 
-  // --- ACTIONS ---
   updateCvField: (field, value) => {
     set((state) => ({ data: { ...state.data, [field]: value } }));
     get().triggerAutoSave();

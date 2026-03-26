@@ -1,0 +1,35 @@
+{
+  "common": {
+    "dashboard": "Dashboard",
+    "synced": "SYNCED",
+    "syncing": "Syncing...",
+    "error": "Connection Error",
+    "save": "SAVE",
+    "export_pdf": "EXPORT PDF"
+  },
+  "toolbar": {
+    "font_family": "Font Family",
+    "font_size": "Size",
+    "language": "Language"
+  },
+  "sidebar": {
+    "title": "CV STRUCTURE",
+    "description": "Drag and drop to arrange",
+    "zones": {
+      "header": "HEADER ZONE (100%)",
+      "left": "LEFT COLUMN (33%)",
+      "right": "RIGHT COLUMN (66%)",
+      "archive": "ARCHIVE"
+    },
+    "blocks": {
+      "header": "Personal Info",
+      "skills": "Skills",
+      "summary": "Summary",
+      "experience": "Work Experience",
+      "education": "Education",
+      "projects": "Projects",
+      "empty": "Empty"
+    },
+    "footer": "Real-time sync with Rust"
+  }
+}

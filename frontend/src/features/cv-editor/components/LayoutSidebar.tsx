@@ -23,6 +23,10 @@ import { useCvStore } from "@/stores/useCvStore";
 import { LayoutColumnId } from "@/types/cv";
 import { cn } from "@/lib/utils";
 
+// Import file ngôn ngữ
+import vi from "@/locales/vi.json";
+import en from "@/locales/en.json";
+
 // Map icon tương ứng với từng loại section
 const sectionIcons: Record<string, React.ElementType> = {
   header: User,
@@ -36,6 +40,11 @@ const sectionIcons: Record<string, React.ElementType> = {
 const LayoutSidebar = () => {
   const { data, reorderSections, moveSection, toggleSectionVisibility } =
     useCvStore();
+
+  if (!data) return null;
+
+  // Xác định bộ từ điển dựa trên language trong store
+  const t = data.language === "en" ? en : vi;
 
   const handleDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result;
@@ -107,6 +116,10 @@ const LayoutSidebar = () => {
 
                 const Icon = sectionIcons[section.type] || FileText;
 
+                // Lấy tên block từ file dịch dựa trên type, nếu không có mới dùng title gốc
+                const displayTitle =
+                  (t.sidebar.blocks as any)[section.type] || section.title;
+
                 return (
                   <Draggable
                     key={section.id}
@@ -144,7 +157,7 @@ const LayoutSidebar = () => {
                         </div>
 
                         <span className="flex-1 text-[12px] font-bold text-slate-700 truncate">
-                          {section.title}
+                          {displayTitle}
                         </span>
 
                         <button
@@ -172,7 +185,9 @@ const LayoutSidebar = () => {
               {sectionIds.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-4 border border-dashed border-slate-200 rounded-xl text-slate-400">
                   <PlusCircle className="w-4 h-4 mb-1 opacity-20" />
-                  <span className="text-[10px] font-medium italic">Trống</span>
+                  <span className="text-[10px] font-medium italic">
+                    {t.sidebar.blocks.empty}
+                  </span>
                 </div>
               )}
             </div>
@@ -192,10 +207,10 @@ const LayoutSidebar = () => {
           </div>
           <div>
             <h2 className="font-black text-sm tracking-tight text-slate-800 uppercase">
-              Cấu trúc CV
+              {t.sidebar.title}
             </h2>
             <p className="text-[10px] text-slate-400 font-bold">
-              Kéo thả để sắp xếp
+              {t.sidebar.description}
             </p>
           </div>
         </div>
@@ -205,12 +220,12 @@ const LayoutSidebar = () => {
       <div className="flex-1 overflow-y-auto py-6 custom-scrollbar">
         <DragDropContext onDragEnd={handleDragEnd}>
           {/* Nhóm hiển thị */}
-          {renderDroppableColumn("fullWidth", "Vùng đầu trang (100%)")}
-          {renderDroppableColumn("leftColumn", "Cột trái (33%)")}
-          {renderDroppableColumn("rightColumn", "Cột phải (66%)")}
+          {renderDroppableColumn("fullWidth", t.sidebar.zones.header)}
+          {renderDroppableColumn("leftColumn", t.sidebar.zones.left)}
+          {renderDroppableColumn("rightColumn", t.sidebar.zones.right)}
 
-          {/* Nhóm lưu trữ - Khớp với key 'unused' trong CvLayout */}
-          {renderDroppableColumn("unused", "Kho mục lưu trữ", true)}
+          {/* Nhóm lưu trữ */}
+          {renderDroppableColumn("unused", t.sidebar.zones.archive, true)}
         </DragDropContext>
       </div>
 
@@ -218,7 +233,7 @@ const LayoutSidebar = () => {
       <div className="p-4 border-t border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-2 text-[10px] font-bold text-indigo-500 bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100">
           <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-          Đồng bộ thời gian thực với Rust
+          {t.sidebar.footer}
         </div>
       </div>
     </aside>

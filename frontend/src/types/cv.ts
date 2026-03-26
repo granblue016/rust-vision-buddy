@@ -88,10 +88,11 @@ export interface CvLayoutState {
 
 /**
  * Dữ liệu layout chính (Lưu dạng JSONB trong Postgres)
- * Đây là trái tim của hệ thống render
+ * Đã thêm trường language để hỗ trợ đa ngôn ngữ UI
  */
 export interface CvLayoutData {
   templateId: string;
+  language: "vi" | "en"; // Thêm trường ngôn ngữ vào đây
   personalInfo: PersonalInfo;
   theme: CvTheme;
   sections: CvSection[];
@@ -125,7 +126,6 @@ export interface UpdateCvRequest {
 
 /**
  * Định nghĩa đầy đủ cho Zustand Store
- * Giúp TypeScript gợi ý code chính xác khi dùng useCvStore()
  */
 export interface CvStoreState {
   currentCvId: string | null;
@@ -143,6 +143,9 @@ export interface CvStoreState {
   saveChanges: () => Promise<void>;
   triggerAutoSave: () => void;
   exportPdf: () => Promise<void>;
+
+  // Action chuyển đổi ngôn ngữ
+  setLanguage: (lang: "vi" | "en") => void;
 
   // Actions chỉnh sửa nội dung
   setTemplateId: (id: string) => void;
@@ -180,6 +183,7 @@ export interface CvStoreState {
  */
 export const DEFAULT_CV_DATA: CvLayoutData = {
   templateId: "modern-01",
+  language: "vi", // Mặc định là tiếng Việt
   personalInfo: {
     fullName: "NGUYỄN VĂN A",
     title: "FULLSTACK DEVELOPER",
@@ -224,6 +228,7 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
         },
       ],
     },
+    // ... các sections khác giữ nguyên như cũ
     {
       id: "section-summary",
       type: "summary",
