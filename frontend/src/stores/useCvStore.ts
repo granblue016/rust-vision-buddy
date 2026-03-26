@@ -1,20 +1,11 @@
 import { create } from "zustand";
-import {
-  CvLayoutData,
-  DEFAULT_CV_DATA,
-  CvStoreState,
-  LayoutColumnId,
-  CvItem,
-  PersonalInfo,
-  CvTheme,
-} from "../types/cv";
+import { CvLayoutData, DEFAULT_CV_DATA, CvStoreState } from "../types/cv";
 import { cvService } from "../services/cvService";
 
-let saveTimeout: any;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * 1. Làm sạch Text thuần: Xóa thẻ HTML cho các trường không hỗ trợ Rich Text.
- * Trả về chuỗi rỗng thay vì null/undefined.
  */
 const cleanPlainText = (html: string | undefined | null): string => {
   if (!html) return "";
@@ -25,18 +16,24 @@ const cleanPlainText = (html: string | undefined | null): string => {
 };
 
 /**
- * 2. CHẶN LỖI 422 & BẢO TOÀN DỮ LIỆU:
- * Chuyển đổi cấu trúc Frontend (column-1,...) sang cấu trúc Backend (fullWidth,...)
+ * 2. CHUẨN HÓA DỮ LIỆU GỬI LÊN RUST (CAMEL CASE):
+ * Khớp hoàn toàn với SQL Migration và UpdateCvRequest.
  */
 const cleanDataForStorage = (data: CvLayoutData): any => {
-  // Ép kiểu any ở đây để tránh lỗi ts(7053) khi truy cập bằng string key
   const rawLayout = (data.layout || {}) as any;
 
+  // Chuyển đổi linh hoạt giữa cấu trúc Frontend (column-1) và cấu trúc Backend (fullWidth)
   const backendLayout = {
-    fullWidth: rawLayout["column-1"] || [],
-    leftColumn: rawLayout["column-2"] || [],
-    rightColumn: rawLayout["column-3"] || [],
-    unused: rawLayout["unused"] || [],
+    fullWidth: Array.isArray(rawLayout.fullWidth)
+      ? rawLayout.fullWidth
+      : rawLayout["column-1"] || [],
+    leftColumn: Array.isArray(rawLayout.leftColumn)
+      ? rawLayout.leftColumn
+      : rawLayout["column-2"] || [],
+    rightColumn: Array.isArray(rawLayout.rightColumn)
+      ? rawLayout.rightColumn
+      : rawLayout["column-3"] || [],
+    unused: Array.isArray(rawLayout.unused) ? rawLayout.unused : [],
   };
 
   return {
@@ -47,7 +44,6 @@ const cleanDataForStorage = (data: CvLayoutData): any => {
       email: cleanPlainText(data.personalInfo?.email),
       phone: cleanPlainText(data.personalInfo?.phone),
       address: cleanPlainText(data.personalInfo?.address),
-      // ĐỔI link THÀNH website ĐỂ HẾT LỖI ts(2339) và ts(2741)
       website: cleanPlainText(
         (data.personalInfo as any)?.website || (data.personalInfo as any)?.link,
       ),
@@ -57,8 +53,7 @@ const cleanDataForStorage = (data: CvLayoutData): any => {
       primaryColor: data.theme?.primaryColor || "#4f46e5",
       fontFamily: data.theme?.fontFamily || "Inter",
       fontSize: data.theme?.fontSize || "Vừa",
-      lineHeight: Number(data.theme?.lineHeight) || 1.5, // ĐẢM BẢO LÀ NUMBER ĐỂ HẾT LỖI ts(2322)
-      templateId: data.theme?.templateId || "MODERN-01",
+      lineHeight: Number(data.theme?.lineHeight) || 1.5,
     },
     layout: backendLayout,
     sections: (data.sections || []).map((s) => ({
@@ -80,7 +75,7 @@ const cleanDataForStorage = (data: CvLayoutData): any => {
 
 export const useCvStore = create<CvStoreState>((set, get) => ({
   currentCvId: null,
-  data: DEFAULT_CV_DATA,
+  data: JSON.parse(JSON.stringify(DEFAULT_CV_DATA)),
   isSaving: false,
   isLoading: false,
   isDirty: false,
@@ -96,19 +91,32 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     if (!id) return;
     set({ isLoading: true, error: null, currentCvId: id });
     try {
-      const cv = await cvService.getById(id);
-      const incoming = cv.layout_data || {};
+      const cv = (await cvService.getById(id)) as any;
+      // Dữ liệu từ Rust có thể nằm trong layout_data hoặc layoutData
+      const incoming = cv.layout_data || cv.layoutData || {};
+      const pInfo = incoming.personalInfo || {};
+      const theme = incoming.theme || {};
 
-      // Khi load dữ liệu từ Backend, ta cần map ngược lại layout nếu cần
-      // Nhưng ở đây ta ưu tiên merge vào DEFAULT_CV_DATA
+      // MAP NGƯỢC: Chống lỗi Property does not exist (ts 2551)
       const mergedData: CvLayoutData = {
         ...DEFAULT_CV_DATA,
         ...incoming,
+        templateId:
+          incoming.templateId ||
+          (incoming as any).template_id ||
+          DEFAULT_CV_DATA.theme.templateId,
         personalInfo: {
           ...DEFAULT_CV_DATA.personalInfo,
-          ...(incoming.personalInfo || {}),
+          ...pInfo,
+          website: pInfo.website || (pInfo as any).link || "",
         },
-        theme: { ...DEFAULT_CV_DATA.theme, ...(incoming.theme || {}) },
+        theme: {
+          ...DEFAULT_CV_DATA.theme,
+          ...theme,
+          primaryColor:
+            theme.primaryColor || (theme as any).primary_color || "#4f46e5",
+          fontFamily: theme.fontFamily || (theme as any).font_family || "Inter",
+        },
         layout: incoming.layout || DEFAULT_CV_DATA.layout,
         sections:
           Array.isArray(incoming.sections) && incoming.sections.length > 0
@@ -116,11 +124,7 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
             : DEFAULT_CV_DATA.sections,
       };
 
-      set({
-        data: mergedData,
-        isLoading: false,
-        isDirty: false,
-      });
+      set({ data: mergedData, isLoading: false, isDirty: false });
     } catch (err) {
       set({ error: "Lỗi tải dữ liệu", isLoading: false });
     }
@@ -128,21 +132,15 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
 
   saveChanges: async () => {
     const { currentCvId, data, isDirty, isSaving } = get();
-    // Chặn nếu đang lưu hoặc không có thay đổi
     if (!currentCvId || !isDirty || isSaving) return;
 
     set({ isSaving: true });
     try {
       const cleanedData = cleanDataForStorage(data);
-
-      // SỬA LỖI CHIẾN LƯỢC: key phải là layoutData (camelCase) để khớp UpdateCvRequest của Rust
+      // Ép kiểu để khớp với UpdateCvRequest của Rust
       await cvService.update(currentCvId, { layoutData: cleanedData } as any);
 
-      set({
-        isSaving: false,
-        isDirty: false,
-        lastSaved: new Date(),
-      });
+      set({ isSaving: false, isDirty: false, lastSaved: new Date() });
     } catch (err) {
       console.error("Auto-save failed:", err);
       set({ isSaving: false, error: "Lưu thất bại" });
@@ -174,7 +172,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-
       const safeName = cleanPlainText(
         get().data.personalInfo?.fullName || "User",
       ).replace(/\s+/g, "_");
@@ -185,7 +182,7 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       window.URL.revokeObjectURL(url);
       set({ isSaving: false });
     } catch (err) {
-      set({ isSaving: false, error: "Lỗi xuất PDF (Timeout server)." });
+      set({ isSaving: false, error: "Lỗi xuất PDF." });
     }
   },
 
@@ -319,7 +316,7 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
 
   moveSection: (sectionId, sourceCol, destCol, index) => {
     set((state) => {
-      const newLayout = { ...state.data.layout };
+      const newLayout = { ...state.data.layout } as any;
       const sourceList = Array.from(newLayout[sourceCol] || []);
       const destList =
         sourceCol === destCol

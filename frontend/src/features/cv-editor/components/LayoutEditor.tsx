@@ -60,7 +60,7 @@ const LayoutEditor = () => {
           <div className="p-12 pb-6">
             <SectionColumn
               id="fullWidth"
-              sectionIds={data.layout.fullWidth}
+              sectionIds={data.layout.fullWidth || []}
               getSection={getSectionById}
               toggleVisibility={toggleSectionVisibility}
             />
@@ -72,7 +72,7 @@ const LayoutEditor = () => {
             <div className="col-span-4 border-r border-slate-100 pr-8 min-h-[600px]">
               <SectionColumn
                 id="leftColumn"
-                sectionIds={data.layout.leftColumn}
+                sectionIds={data.layout.leftColumn || []}
                 getSection={getSectionById}
                 toggleVisibility={toggleSectionVisibility}
               />
@@ -82,7 +82,7 @@ const LayoutEditor = () => {
             <div className="col-span-8 pl-10 space-y-10 min-h-[600px]">
               <SectionColumn
                 id="rightColumn"
-                sectionIds={data.layout.rightColumn}
+                sectionIds={data.layout.rightColumn || []}
                 getSection={getSectionById}
                 toggleVisibility={toggleSectionVisibility}
               />
@@ -103,7 +103,7 @@ const LayoutEditor = () => {
           </div>
           <SectionColumn
             id="unused"
-            sectionIds={data.layout.unused}
+            sectionIds={data.layout.unused || []}
             getSection={getSectionById}
             toggleVisibility={toggleSectionVisibility}
             isHorizontal
@@ -117,13 +117,14 @@ const LayoutEditor = () => {
 // --- RENDER NỘI DUNG ---
 const SectionRenderer = ({ section }: { section: CvSection }) => {
   const {
-    data, // Lấy data từ store để truyền vào HeaderBlock
+    data,
     updateItemField,
     updateSectionTitle,
     addItem,
     removeItem,
     updateSectionContent,
   } = useCvStore();
+
   const sType = section.type.toLowerCase();
 
   const SectionTitle = () => (
@@ -147,7 +148,6 @@ const SectionRenderer = ({ section }: { section: CvSection }) => {
 
   switch (sType) {
     case "header":
-      // CẬP NHẬT: Truyền props để HeaderBlock hoạt động chính xác trong Editor
       return (
         <HeaderBlock
           personalInfo={data?.personalInfo}
@@ -176,7 +176,7 @@ const SectionRenderer = ({ section }: { section: CvSection }) => {
         <div className="group">
           <SectionTitle />
           <div className="space-y-6">
-            {section.items.map((item) => (
+            {(section.items || []).map((item) => (
               <div key={item.id} className="group/item relative space-y-1">
                 <button
                   onClick={() => removeItem(section.id, item.id)}
@@ -236,7 +236,7 @@ const SectionRenderer = ({ section }: { section: CvSection }) => {
         <div className="group">
           <SectionTitle />
           <div className="flex flex-wrap gap-2">
-            {section.items.map((s) => (
+            {(section.items || []).map((s) => (
               <div
                 key={s.id}
                 className="group/skill relative flex items-center"
@@ -343,7 +343,10 @@ const SectionColumn = ({
                         <GripVertical size={14} />
                       </div>
                       <button
-                        onClick={() => toggleVisibility(sid)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleVisibility(sid);
+                        }}
                         className="p-1.5 bg-white shadow-md border border-slate-100 rounded-md text-slate-400 hover:text-indigo-600"
                       >
                         {section.visible ? (
@@ -376,7 +379,7 @@ const SectionColumn = ({
           {provided.placeholder}
 
           {sectionIds.length === 0 && !snapshot.isDraggingOver && (
-            <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-100 rounded-lg py-8">
+            <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-100 rounded-lg py-8 min-w-[200px]">
               <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
                 Kéo nội dung vào đây
               </span>

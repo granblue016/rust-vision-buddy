@@ -1,4 +1,7 @@
-use crate::modules::cv::models::{CreateCvRequest, Cv, CvLayoutData, CvResponse, UpdateCvRequest};
+use crate::modules::cv::models::{
+    CreateCvRequest, Cv, CvLayoutData, CvLayoutState, CvResponse, CvSection, CvSectionItem,
+    CvTheme, PersonalInfo, UpdateCvRequest,
+};
 use crate::services::pdf_service::PdfService;
 use crate::shared::app_state::AppState;
 use axum::{
@@ -7,25 +10,115 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use serde_json::json;
 use tracing::{error, info};
 use uuid::Uuid;
 
-/// 1. Tạo mới CV
 pub async fn create_cv(
     State(state): State<AppState>,
     Json(payload): Json<CreateCvRequest>,
 ) -> Result<(StatusCode, Json<CvResponse>), StatusCode> {
-    let user_id = Uuid::nil(); // TODO: Thay bằng ID từ JWT Auth khi hoàn thiện hệ thống User
+    let user_id = Uuid::nil();
     let cv_id = Uuid::new_v4();
 
-    let mut default_layout = CvLayoutData::default();
-    if let Some(tid) = payload.template_id {
-        default_layout.theme.template_id = tid;
-    }
+    // KHỞI TẠO DỮ LIỆU MẪU THEO ĐÚNG MODELS.RS
+    let default_layout = CvLayoutData {
+        template_id: payload
+            .template_id
+            .unwrap_or_else(|| "modern-01".to_string()),
+        personal_info: PersonalInfo {
+            full_name: "NGUYỄN VĂN ABCDEFFFG".into(),
+            title: "FULLSTACK DEVELOPERRRRR".into(),
+            email: "hello@gmail.com".into(),
+            phone: "0123 456 789".into(),
+            address: "TP. Hồ Chí Minh".into(),
+            website: "github.com/nguyenvana".into(),
+            avatar: None,
+        },
+        theme: CvTheme::default(),
+        sections: vec![
+            CvSection {
+                id: "section-header".into(),
+                r#type: "header".into(),
+                title: "Thông tin cá nhân".into(),
+                visible: true,
+                ..Default::default()
+            },
+            CvSection {
+                id: "section-skills".into(),
+                r#type: "skills".into(),
+                title: "Kỹ năng".into(),
+                visible: true,
+                items: vec![
+                    CvSectionItem {
+                        id: Uuid::new_v4().to_string(),
+                        title: "React".into(),
+                        ..Default::default()
+                    },
+                    CvSectionItem {
+                        id: Uuid::new_v4().to_string(),
+                        title: "Rust".into(),
+                        ..Default::default()
+                    },
+                    CvSectionItem {
+                        id: Uuid::new_v4().to_string(),
+                        title: "Python".into(),
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            },
+            CvSection {
+                id: "section-summary".into(),
+                r#type: "summary".into(),
+                title: "Giới thiệu".into(),
+                visible: true,
+                content: Some("Đây là nội dung tóm tắt chuyên môn của tôi.".into()),
+                ..Default::default()
+            },
+            CvSection {
+                id: "section-exp".into(),
+                r#type: "experience".into(),
+                title: "Kinh nghiệm làm việc".into(),
+                visible: true,
+                items: vec![CvSectionItem {
+                    id: Uuid::new_v4().to_string(),
+                    title: "CÔNG TY ABC".into(),
+                    subtitle: Some("Software Engineer".into()),
+                    description: Some("Lập trình Rust/React".into()),
+                    date: Some("2024 - Hiện tại".into()),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            },
+            CvSection {
+                id: "section-edu".into(),
+                r#type: "education".into(),
+                title: "Học vấn".into(),
+                visible: true,
+                items: vec![CvSectionItem {
+                    id: Uuid::new_v4().to_string(),
+                    title: "ĐẠI HỌC CÔNG NGHỆ".into(),
+                    subtitle: Some("Cử nhân CNTT".into()),
+                    date: Some("2020 - 2024".into()),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            },
+        ],
+        layout: CvLayoutState {
+            full_width: vec!["section-header".into()],
+            left_column: vec!["section-skills".into()],
+            right_column: vec![
+                "section-summary".into(),
+                "section-exp".into(),
+                "section-edu".into(),
+            ],
+            unused: vec![],
+        },
+    };
 
     let layout_value = serde_json::to_value(&default_layout).map_err(|e| {
-        error!("🔥 Serializing default layout failed: {:?}", e);
+        error!("🔥 Serialization failed: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -39,11 +132,9 @@ pub async fn create_cv(
     .execute(&state.db)
     .await
     .map_err(|e| {
-        error!("🔥 Database Insert Error: {:?}", e);
+        error!("🔥 DB Insert Error: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
-
-    info!("✅ Created new CV: {} with name: {}", cv_id, payload.name);
 
     Ok((
         StatusCode::CREATED,
@@ -73,16 +164,13 @@ pub async fn get_cv_by_id(
     .await
     .map_err(|e| match e {
         sqlx::Error::RowNotFound => StatusCode::NOT_FOUND,
-        _ => {
-            error!("🔥 DB Fetch Error: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
     })?;
 
     Ok(Json(cv))
 }
 
-/// 3. Cập nhật CV (Tối ưu cho AUTO-SAVE)
+/// 3. Cập nhật CV
 pub async fn update_cv(
     State(state): State<AppState>,
     Path(id_str): Path<String>,
@@ -90,67 +178,42 @@ pub async fn update_cv(
 ) -> Result<StatusCode, StatusCode> {
     let target_id = Uuid::parse_str(&id_str).map_err(|_| StatusCode::BAD_REQUEST)?;
 
-    info!(
-        "💾 Auto-saving CV: {} - Title: {:?}",
-        target_id, payload.name
-    );
-
     let layout_value = serde_json::to_value(&payload.layout_data).map_err(|e| {
-        error!("🔥 Serialization error: {:?}", e);
+        error!("🔥 Lỗi Serialize Update: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let result = sqlx::query!(
-        r#"
-        UPDATE cvs
-        SET name = COALESCE($1, name),
-            layout_data = $2,
-            updated_at = NOW()
-        WHERE id = $3
-        "#,
+    sqlx::query!(
+        r#"UPDATE cvs SET name = COALESCE($1, name), layout_data = $2, updated_at = NOW() WHERE id = $3"#,
         payload.name,
         layout_value,
         target_id
     )
     .execute(&state.db)
     .await
-    .map_err(|e| {
-        error!("🔥 Update CV SQL Error: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    if result.rows_affected() == 0 {
-        return Err(StatusCode::NOT_FOUND);
-    }
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::OK)
 }
 
-/// 4. Xuất PDF - Tích hợp PdfService
+/// 4. Xuất PDF
 pub async fn export_cv_pdf(
     State(_state): State<AppState>,
     headers: HeaderMap,
     Path(id_str): Path<String>,
 ) -> impl IntoResponse {
-    // Trích xuất Token để PdfService có thể authenticate với Frontend Preview
     let token = headers
         .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .map(|s| s.replace("Bearer ", ""));
 
-    // Lấy URL frontend từ Env (mặc định localhost:5173)
     let frontend_url =
         std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
-
     let target_url = format!("{}/preview/{}", frontend_url, id_str);
-
-    info!("🚀 Rendering PDF cho CV: {} - URL: {}", id_str, target_url);
 
     match PdfService::render_pdf(target_url, token).await {
         Ok(pdf_bytes) => {
             let filename = format!("CV_{}.pdf", id_str);
-
-            // Xây dựng Header trả về file binary
             let mut res_headers = HeaderMap::new();
             res_headers.insert(
                 header::CONTENT_TYPE,
@@ -160,18 +223,13 @@ pub async fn export_cv_pdf(
                 header::CONTENT_DISPOSITION,
                 HeaderValue::from_str(&format!("attachment; filename=\"{}\"", filename)).unwrap(),
             );
-            // Quan trọng: Ngăn chặn trình duyệt cache file PDF cũ (lỗi image_8abe02.png)
             res_headers.insert(
                 header::CACHE_CONTROL,
                 HeaderValue::from_static("no-cache, no-store, must-revalidate"),
             );
-
             (StatusCode::OK, res_headers, pdf_bytes).into_response()
         }
-        Err(status) => {
-            error!("🔥 Export PDF failed with status: {:?}", status);
-            (status, "Lỗi trong quá trình render PDF").into_response()
-        }
+        Err(status) => (status, "Lỗi render PDF").into_response(),
     }
 }
 
