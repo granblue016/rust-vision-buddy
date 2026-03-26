@@ -4,7 +4,6 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 // --- 1. REQUEST/RESPONSE STRUCTS ---
-// Đảm bảo các request/response từ API luôn dùng camelCase để khớp với Frontend Axios/Fetch
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,13 +23,14 @@ pub struct CvResponse {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCvRequest {
     pub name: Option<String>,
+    // Frontend gửi "layoutData", Rust map vào layout_data
     pub layout_data: CvLayoutData,
 }
 
-// --- 2. CORE MODELS (Dữ liệu cấu trúc CV) ---
+// --- 2. CORE MODELS ---
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")] // Sửa lỗi dính tên cũ: full_name -> fullName
+#[serde(rename_all = "camelCase")]
 pub struct PersonalInfo {
     #[serde(default)]
     pub full_name: String,
@@ -44,16 +44,18 @@ pub struct PersonalInfo {
     pub address: String,
     #[serde(default)]
     pub website: String,
+    #[serde(default)]
     pub avatar: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")] // Sửa lỗi theme: primary_color -> primaryColor
+#[serde(rename_all = "camelCase")]
 pub struct CvTheme {
     #[serde(default = "default_font_family")]
     pub font_family: String,
     #[serde(default = "default_font_size")]
     pub font_size: String,
+    // Lưu ý: Frontend CẦN gửi số, nhưng Backend để mặc định nếu lỗi
     #[serde(default = "default_line_height")]
     pub line_height: f32,
     #[serde(default = "default_primary_color")]
@@ -81,12 +83,19 @@ pub struct CvSectionItem {
     pub id: String,
     #[serde(default)]
     pub title: String,
+    #[serde(default)]
     pub subtitle: Option<String>,
+    #[serde(default)]
     pub date: Option<String>,
+    #[serde(default)]
     pub description: Option<String>,
+    #[serde(default)]
     pub email: Option<String>,
+    #[serde(default)]
     pub phone: Option<String>,
+    #[serde(default)]
     pub location: Option<String>,
+    #[serde(default)]
     pub link: Option<String>,
 }
 
@@ -96,12 +105,13 @@ pub struct CvSection {
     #[serde(default = "default_uuid_str")]
     pub id: String,
     #[serde(default = "default_section_type")]
-    #[serde(rename = "type")] // Map "type" ở Frontend vào "r#type" ở Rust
+    #[serde(rename = "type")]
     pub r#type: String,
     #[serde(default)]
     pub title: String,
     #[serde(default = "default_visible")]
     pub visible: bool,
+    #[serde(default)]
     pub content: Option<String>,
     #[serde(default)]
     pub items: Vec<CvSectionItem>,
@@ -110,11 +120,12 @@ pub struct CvSection {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CvLayoutState {
-    #[serde(default)]
+    // Dùng alias để "chấp hết" các loại tên cột từ Frontend gửi lên
+    #[serde(default, alias = "column-1")]
     pub full_width: Vec<String>,
-    #[serde(default)]
+    #[serde(default, alias = "column-2")]
     pub left_column: Vec<String>,
-    #[serde(default)]
+    #[serde(default, alias = "column-3")]
     pub right_column: Vec<String>,
     #[serde(default)]
     pub unused: Vec<String>,
@@ -139,14 +150,7 @@ impl Default for CvLayoutData {
     fn default() -> Self {
         Self {
             template_id: default_template_id(),
-            personal_info: PersonalInfo {
-                full_name: "NGUYỄN VĂN A".into(),
-                title: "FULLSTACK DEVELOPER".into(),
-                email: "hello@gmail.com".into(),
-                phone: "0123 456 789".into(),
-                address: "TP. Hồ Chí Minh".into(),
-                ..Default::default()
-            },
+            personal_info: PersonalInfo::default(),
             theme: CvTheme::default(),
             sections: vec![],
             layout: CvLayoutState::default(),
@@ -161,13 +165,12 @@ pub struct Cv {
     pub id: Uuid,
     pub user_id: Uuid,
     pub name: String,
-    // sqlx::types::Json bọc ngoài để SQLx parse cột JSONB tự động
     pub layout_data: sqlx::types::Json<CvLayoutData>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-// --- 4. HELPER FUNCTIONS FOR SERDE DEFAULTS ---
+// --- 4. HELPER FUNCTIONS ---
 
 fn default_font_family() -> String {
     "Inter".into()

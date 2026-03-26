@@ -1,33 +1,34 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { cvService } from "../../../services/cvService";
 import { CvLayoutData } from "../../../types/cv";
 import HeaderBlock from "../components/HeaderBlock";
 
 const PreviewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<CvLayoutData | null>(null);
   const [error, setError] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
   /**
-   * Hàm làm sạch HTML nâng cao:
-   * Xử lý triệt để các thẻ <p>, &nbsp; và các ký tự rác lọt vào từ Editor.
+   * 1. LÀM SẠCH HTML: Xử lý triệt để các thẻ rác lọt vào từ Editor.
+   * Đảm bảo layout in ấn không bị vỡ do thẻ <p> thừa.
    */
   const safeCleanHTML = (html: string | undefined) => {
     if (!html) return "";
     return html
       .replace(/<p[^>]*>/g, "") // Loại bỏ thẻ mở p
       .replace(/<\/p>/g, "") // Loại bỏ thẻ đóng p
-      .replace(/&lt;p&gt;|<p>/g, "") // Fix trường hợp bị encode
+      .replace(/&lt;p&gt;|<p>/g, "") // Fix trường hợp bị encode từ backend
       .replace(/&lt;\/p&gt;|<\/p>/g, "")
-      .replace(/&nbsp;/g, " ") // Đổi thực thể HTML thành khoảng trắng thực
-      .replace(/(<br\s*\/?>){2,}/g, "<br/>") // Gom dòng trống
+      .replace(/&nbsp;/g, " ")
       .trim();
   };
 
   /**
-   * Hàm chuyên dụng để lấy Text thuần (dùng cho Title hoặc Header)
+   * 2. TRÍCH XUẤT TEXT THUẦN: Dùng cho document.title và Header.
+   * Khắc phục lỗi tên PDF bị dính thẻ <p>.
    */
   const extractRawText = (html: string | undefined) => {
     if (!html) return "";
@@ -37,8 +38,15 @@ const PreviewPage: React.FC = () => {
   useEffect(() => {
     const loadFreshData = async () => {
       if (!id) return;
+
+      // Xử lý token từ URL (nếu có) để duy trì session cho Headless Chrome
+      const token = searchParams.get("t");
+      if (token) {
+        localStorage.setItem("auth_token", token);
+      }
+
       try {
-        // 1. Reset trạng thái render cho Backend Rust
+        // RESET: Báo hiệu cho Backend Rust là chưa sẵn sàng
         (window as any).isRendered = false;
 
         const response = await cvService.getById(id);
@@ -47,20 +55,17 @@ const PreviewPage: React.FC = () => {
           const layout = response.layout_data;
           setData(layout);
 
-          // 2. FIX: Gỡ bỏ hoàn toàn thẻ <p> khỏi Title trình duyệt
+          // FIX: Gỡ bỏ hoàn toàn HTML khỏi tiêu đề trang
           const fullName = extractRawText(layout.personalInfo?.fullName);
-          if (fullName) {
-            document.title = `CV - ${fullName}`;
-          }
+          document.title = fullName ? `CV - ${fullName}` : "CV Preview";
 
           // 3. CƠ CHẾ ĐỢI RENDER (Đồng bộ với PdfService.rs)
-          // Đợi DOM cập nhật + Đợi Fonts tải xong để tránh PDF bị lỗi font/trắng trang
+          // Đợi Fonts tải xong để tránh PDF bị lỗi font/trắng trang
           setTimeout(() => {
             if (document.fonts) {
               document.fonts.ready.then(() => {
                 setIsReady(true);
-                (window as any).isRendered = true;
-                console.log("✅ CV Rendered & Fonts Ready");
+                (window as any).isRendered = true; // Bật công tắc cho Rust bắt đầu in
               });
             } else {
               setIsReady(true);
@@ -77,7 +82,7 @@ const PreviewPage: React.FC = () => {
     };
 
     loadFreshData();
-  }, [id]);
+  }, [id, searchParams]);
 
   if (error) {
     return (
@@ -97,9 +102,12 @@ const PreviewPage: React.FC = () => {
         !isReady ? "opacity-0" : "opacity-100 transition-opacity duration-300"
       }`}
       id="cv-preview"
-      style={{ fontFamily: "'Inter', sans-serif" }}
+      style={{
+        fontFamily: data.theme?.fontFamily || "'Inter', sans-serif",
+        lineHeight: data.theme?.lineHeight || 1.5,
+      }}
     >
-      {/* 4. Truyền dữ liệu đã làm sạch vào Header */}
+      {/* 4. Truyền dữ liệu SẠCH vào Header để tên không bị dính <p> */}
       <HeaderBlock
         personalInfo={{
           ...data.personalInfo,
@@ -134,7 +142,6 @@ const PreviewPage: React.FC = () => {
                   {section.title}
                 </h3>
 
-                {/* Phần nội dung mô tả chung (Summary/Profile) */}
                 {section.content && (
                   <div
                     className="text-slate-700 leading-relaxed text-[13px] mb-4 text-justify preview-rich-text"
@@ -144,7 +151,6 @@ const PreviewPage: React.FC = () => {
                   />
                 )}
 
-                {/* Phần danh sách item (Experience/Education) */}
                 {section.items && section.items.length > 0 && (
                   <div className="space-y-4">
                     {section.items.map((item) => (
@@ -200,10 +206,10 @@ const PreviewPage: React.FC = () => {
           }
         }
 
-        /* Loại bỏ khoảng cách thừa do p tạo ra trong Rich Text */
+        /* Loại bỏ margin thừa do thẻ p trong Rich Text tạo ra */
         .preview-rich-text p {
           margin: 0 !important;
-          display: inline; /* Giữ text liền mạch sau khi xóa p */
+          display: inline;
         }
 
         .break-inside-avoid {
@@ -211,7 +217,6 @@ const PreviewPage: React.FC = () => {
           page-break-inside: avoid;
         }
 
-        /* Đảm bảo text không bị tràn lề khi in */
         .preview-rich-text {
           word-wrap: break-word;
           overflow-wrap: break-word;

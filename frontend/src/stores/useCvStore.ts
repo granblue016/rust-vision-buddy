@@ -13,55 +13,58 @@ import { cvService } from "../services/cvService";
 let saveTimeout: any;
 
 /**
- * 1. Làm sạch Text thuần (Tên, Chức danh, Tiêu đề mục...):
- * Xóa toàn bộ HTML để tránh lỗi dính thẻ <p> vào tên hoặc tiêu đề.
+ * 1. Làm sạch Text thuần: Xóa thẻ HTML cho các trường không hỗ trợ Rich Text.
+ * Trả về chuỗi rỗng thay vì null/undefined.
  */
 const cleanPlainText = (html: string | undefined | null): string => {
   if (!html) return "";
   return html
-    .replace(/<\/?[^>]+(>|$)/g, "") // Xóa sạch mọi thẻ HTML
-    .replace(/&nbsp;/g, " ") // Xử lý khoảng trắng an toàn
+    .replace(/<\/?[^>]+(>|$)/g, "")
+    .replace(/&nbsp;/g, " ")
     .trim();
 };
 
 /**
- * 2. CHẶN LỖI 422 TỪ RUST:
- * Rust cực kỳ khắt khe. Nếu gửi lên `undefined` hoặc `null`, API sẽ crash.
- * Hàm này "ép" mọi dữ liệu về đúng định dạng Schema mà Rust mong đợi.
+ * 2. CHẶN LỖI 422 & BẢO TOÀN DỮ LIỆU:
+ * Chuyển đổi cấu trúc Frontend (column-1,...) sang cấu trúc Backend (fullWidth,...)
  */
-const cleanDataForStorage = (data: CvLayoutData): CvLayoutData => {
+const cleanDataForStorage = (data: CvLayoutData): any => {
+  // Ép kiểu any ở đây để tránh lỗi ts(7053) khi truy cập bằng string key
+  const rawLayout = (data.layout || {}) as any;
+
+  const backendLayout = {
+    fullWidth: rawLayout["column-1"] || [],
+    leftColumn: rawLayout["column-2"] || [],
+    rightColumn: rawLayout["column-3"] || [],
+    unused: rawLayout["unused"] || [],
+  };
+
   return {
-    ...data,
+    templateId: data.theme?.templateId || "modern-01",
     personalInfo: {
-      ...data.personalInfo,
-      // Ép kiểu các trường thông tin cá nhân về text thuần (không HTML, không Null)
       fullName: cleanPlainText(data.personalInfo?.fullName),
       title: cleanPlainText(data.personalInfo?.title),
       email: cleanPlainText(data.personalInfo?.email),
       phone: cleanPlainText(data.personalInfo?.phone),
       address: cleanPlainText(data.personalInfo?.address),
-      link: cleanPlainText(data.personalInfo?.link),
+      // ĐỔI link THÀNH website ĐỂ HẾT LỖI ts(2339) và ts(2741)
+      website: cleanPlainText(
+        (data.personalInfo as any)?.website || (data.personalInfo as any)?.link,
+      ),
       avatar: data.personalInfo?.avatar || "",
     },
     theme: {
-      ...data.theme,
       primaryColor: data.theme?.primaryColor || "#4f46e5",
       fontFamily: data.theme?.fontFamily || "Inter",
       fontSize: data.theme?.fontSize || "Vừa",
+      lineHeight: Number(data.theme?.lineHeight) || 1.5, // ĐẢM BẢO LÀ NUMBER ĐỂ HẾT LỖI ts(2322)
       templateId: data.theme?.templateId || "MODERN-01",
     },
-    layout: data.layout || {
-      "column-1": [],
-      "column-2": [],
-      "column-3": [],
-    },
+    layout: backendLayout,
     sections: (data.sections || []).map((s) => ({
       ...s,
       id: s.id || crypto.randomUUID(),
-      type: s.type || "custom",
       title: cleanPlainText(s.title),
-      visible: s.visible ?? true,
-      // KHÔNG strip HTML của content vì Text Editor (Rich Text) cần giữ format
       content: s.content || "",
       items: (s.items || []).map((item) => ({
         ...item,
@@ -69,7 +72,6 @@ const cleanDataForStorage = (data: CvLayoutData): CvLayoutData => {
         title: cleanPlainText(item.title),
         subtitle: cleanPlainText(item.subtitle),
         date: cleanPlainText(item.date),
-        // Tương tự, giữ nguyên HTML cho description
         description: item.description || "",
       })),
     })),
@@ -77,7 +79,6 @@ const cleanDataForStorage = (data: CvLayoutData): CvLayoutData => {
 };
 
 export const useCvStore = create<CvStoreState>((set, get) => ({
-  // --- 1. STATE ---
   currentCvId: null,
   data: DEFAULT_CV_DATA,
   isSaving: false,
@@ -86,11 +87,10 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
   error: null,
   lastSaved: null,
 
-  // --- 2. HỆ THỐNG ĐỒNG BỘ ---
   setIsSaving: (isSaving: boolean) => set({ isSaving }),
 
   setInitialData: (data: CvLayoutData) =>
-    set({ data: cleanDataForStorage(data), isDirty: false, isLoading: false }),
+    set({ data: data, isDirty: false, isLoading: false }),
 
   fetchCv: async (id: string) => {
     if (!id) return;
@@ -99,6 +99,8 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       const cv = await cvService.getById(id);
       const incoming = cv.layout_data || {};
 
+      // Khi load dữ liệu từ Backend, ta cần map ngược lại layout nếu cần
+      // Nhưng ở đây ta ưu tiên merge vào DEFAULT_CV_DATA
       const mergedData: CvLayoutData = {
         ...DEFAULT_CV_DATA,
         ...incoming,
@@ -107,44 +109,42 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
           ...(incoming.personalInfo || {}),
         },
         theme: { ...DEFAULT_CV_DATA.theme, ...(incoming.theme || {}) },
-        layout: { ...DEFAULT_CV_DATA.layout, ...(incoming.layout || {}) },
+        layout: incoming.layout || DEFAULT_CV_DATA.layout,
         sections:
           Array.isArray(incoming.sections) && incoming.sections.length > 0
             ? incoming.sections
             : DEFAULT_CV_DATA.sections,
       };
 
-      // Load lên cũng phải đảm bảo sạch sẽ
       set({
-        data: cleanDataForStorage(mergedData),
+        data: mergedData,
         isLoading: false,
         isDirty: false,
       });
-    } catch (err: any) {
-      console.error("Fetch CV Error:", err);
+    } catch (err) {
       set({ error: "Lỗi tải dữ liệu", isLoading: false });
     }
   },
 
   saveChanges: async () => {
     const { currentCvId, data, isDirty, isSaving } = get();
+    // Chặn nếu đang lưu hoặc không có thay đổi
     if (!currentCvId || !isDirty || isSaving) return;
 
     set({ isSaving: true });
     try {
-      // Ép dữ liệu phải đạt chuẩn trước khi truyền sang API Rust
       const cleanedData = cleanDataForStorage(data);
 
-      await cvService.update(currentCvId, { layout_data: cleanedData });
+      // SỬA LỖI CHIẾN LƯỢC: key phải là layoutData (camelCase) để khớp UpdateCvRequest của Rust
+      await cvService.update(currentCvId, { layoutData: cleanedData } as any);
 
       set({
         isSaving: false,
         isDirty: false,
         lastSaved: new Date(),
-        data: cleanedData, // Cập nhật UI với dữ liệu đã chuẩn hóa
       });
-    } catch (err: any) {
-      console.error("Save Changes Error:", err);
+    } catch (err) {
+      console.error("Auto-save failed:", err);
       set({ isSaving: false, error: "Lưu thất bại" });
     }
   },
@@ -152,14 +152,13 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
   triggerAutoSave: () => {
     set({ isDirty: true });
     if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => get().saveChanges(), 2000); // Đợi 2s sau khi ngừng gõ mới lưu
+    saveTimeout = setTimeout(() => get().saveChanges(), 2000);
   },
 
   exportPdf: async () => {
     const { currentCvId, isDirty, isSaving } = get();
     if (!currentCvId) return;
 
-    // Chờ lưu xong dữ liệu hiện tại mới được gọi lệnh In (tránh in ra data cũ)
     if (isDirty || isSaving) {
       if (saveTimeout) clearTimeout(saveTimeout);
       await get().saveChanges();
@@ -176,11 +175,9 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       const link = document.createElement("a");
       link.href = url;
 
-      // Tạo tên file an toàn
-      const safeName = get().data.personalInfo?.fullName
-        ? cleanPlainText(get().data.personalInfo.fullName).replace(/\s+/g, "_")
-        : "User";
-
+      const safeName = cleanPlainText(
+        get().data.personalInfo?.fullName || "User",
+      ).replace(/\s+/g, "_");
       link.download = `CV_${safeName}.pdf`;
       document.body.appendChild(link);
       link.click();
@@ -188,44 +185,11 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       window.URL.revokeObjectURL(url);
       set({ isSaving: false });
     } catch (err) {
-      console.error("Export PDF Error:", err);
-      set({
-        isSaving: false,
-        error: "Lỗi xuất PDF. Máy chủ Rust có thể bị Timeout.",
-      });
+      set({ isSaving: false, error: "Lỗi xuất PDF (Timeout server)." });
     }
   },
 
-  // --- 3. ACTIONS ĐỂ GIẢI QUYẾT LỖI TS(2739) & QUẢN LÝ DỮ LIỆU ---
-  setTemplateId: (id: string) => {
-    set((state) => ({
-      data: { ...state.data, theme: { ...state.data.theme, templateId: id } },
-    }));
-    get().triggerAutoSave();
-  },
-
-  moveSection: (sectionId, sourceCol, destCol, index) => {
-    set((state) => {
-      const newLayout = { ...state.data.layout };
-      const sourceList = Array.from(newLayout[sourceCol] || []);
-      const destList =
-        sourceCol === destCol
-          ? sourceList
-          : Array.from(newLayout[destCol] || []);
-
-      const sourceIndex = sourceList.indexOf(sectionId);
-      if (sourceIndex === -1) return state;
-
-      sourceList.splice(sourceIndex, 1);
-      destList.splice(index, 0, sectionId);
-
-      newLayout[sourceCol] = sourceList;
-      newLayout[destCol] = destList;
-      return { data: { ...state.data, layout: newLayout } };
-    });
-    get().triggerAutoSave();
-  },
-
+  // --- ACTIONS ---
   updateCvField: (field, value) => {
     set((state) => ({ data: { ...state.data, [field]: value } }));
     get().triggerAutoSave();
@@ -237,6 +201,58 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
         ...state.data,
         personalInfo: { ...state.data.personalInfo, [field]: value },
       },
+    }));
+    get().triggerAutoSave();
+  },
+
+  addItem: (sectionId) => {
+    set((state) => ({
+      data: {
+        ...state.data,
+        sections: state.data.sections.map((s) =>
+          s.id === sectionId
+            ? {
+                ...s,
+                items: [
+                  ...(s.items || []),
+                  {
+                    id: crypto.randomUUID(),
+                    title: "Mục mới",
+                    subtitle: "",
+                    description: "",
+                    date: "",
+                  },
+                ],
+              }
+            : s,
+        ),
+      },
+    }));
+    get().triggerAutoSave();
+  },
+
+  updateItemField: (sectionId, itemId, field, value) => {
+    set((state) => ({
+      data: {
+        ...state.data,
+        sections: state.data.sections.map((s) =>
+          s.id === sectionId
+            ? {
+                ...s,
+                items: (s.items || []).map((i: any) =>
+                  i.id === itemId ? { ...i, [field]: value || "" } : i,
+                ),
+              }
+            : s,
+        ),
+      },
+    }));
+    get().triggerAutoSave();
+  },
+
+  setTemplateId: (id: string) => {
+    set((state) => ({
+      data: { ...state.data, theme: { ...state.data.theme, templateId: id } },
     }));
     get().triggerAutoSave();
   },
@@ -277,49 +293,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  updateTheme: (newTheme) => {
-    set((state) => ({
-      data: { ...state.data, theme: { ...state.data.theme, ...newTheme } },
-    }));
-    get().triggerAutoSave();
-  },
-
-  reorderSections: (columnId, newIds) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        layout: { ...state.data.layout, [columnId]: newIds },
-      },
-    }));
-    get().triggerAutoSave();
-  },
-
-  addItem: (sectionId) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId
-            ? {
-                ...s,
-                items: [
-                  ...(s.items || []),
-                  {
-                    id: crypto.randomUUID(),
-                    title: "Mục mới",
-                    subtitle: "",
-                    description: "",
-                    date: "",
-                  },
-                ],
-              }
-            : s,
-        ),
-      },
-    }));
-    get().triggerAutoSave();
-  },
-
   removeItem: (sectionId, itemId) => {
     set((state) => ({
       data: {
@@ -337,20 +310,37 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
     get().triggerAutoSave();
   },
 
-  updateItemField: (sectionId, itemId, field, value) => {
+  updateTheme: (newTheme) => {
+    set((state) => ({
+      data: { ...state.data, theme: { ...state.data.theme, ...newTheme } },
+    }));
+    get().triggerAutoSave();
+  },
+
+  moveSection: (sectionId, sourceCol, destCol, index) => {
+    set((state) => {
+      const newLayout = { ...state.data.layout };
+      const sourceList = Array.from(newLayout[sourceCol] || []);
+      const destList =
+        sourceCol === destCol
+          ? sourceList
+          : Array.from(newLayout[destCol] || []);
+      const sourceIndex = sourceList.indexOf(sectionId);
+      if (sourceIndex === -1) return state;
+      sourceList.splice(sourceIndex, 1);
+      destList.splice(index, 0, sectionId);
+      newLayout[sourceCol] = sourceList;
+      newLayout[destCol] = destList;
+      return { data: { ...state.data, layout: newLayout } };
+    });
+    get().triggerAutoSave();
+  },
+
+  reorderSections: (columnId, newIds) => {
     set((state) => ({
       data: {
         ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId
-            ? {
-                ...s,
-                items: (s.items || []).map((i: any) =>
-                  i.id === itemId ? { ...i, [field]: value } : i,
-                ),
-              }
-            : s,
-        ),
+        layout: { ...state.data.layout, [columnId]: newIds },
       },
     }));
     get().triggerAutoSave();
