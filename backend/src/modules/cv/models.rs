@@ -9,7 +9,7 @@ use uuid::Uuid;
 #[serde(rename_all = "camelCase")]
 pub struct CreateCvRequest {
     pub name: String,
-    pub template_id: Option<String>,
+    pub template_id: Option<String>, // JSON: templateId
 }
 
 #[derive(Debug, Serialize)]
@@ -23,7 +23,7 @@ pub struct CvResponse {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateCvRequest {
     pub name: Option<String>,
-    // Frontend gửi "layoutData", Rust map vào layout_data
+    // Frontend gửi { "layoutData": ... } -> Rust nhận vào layout_data
     pub layout_data: CvLayoutData,
 }
 
@@ -33,7 +33,7 @@ pub struct UpdateCvRequest {
 #[serde(rename_all = "camelCase")]
 pub struct PersonalInfo {
     #[serde(default)]
-    pub full_name: String,
+    pub full_name: String, // JSON: fullName
     #[serde(default)]
     pub title: String,
     #[serde(default)]
@@ -52,16 +52,16 @@ pub struct PersonalInfo {
 #[serde(rename_all = "camelCase")]
 pub struct CvTheme {
     #[serde(default = "default_font_family")]
-    pub font_family: String,
+    pub font_family: String, // JSON: fontFamily
     #[serde(default = "default_font_size")]
-    pub font_size: String,
-    // Lưu ý: Frontend CẦN gửi số, nhưng Backend để mặc định nếu lỗi
+    pub font_size: String, // JSON: fontSize
     #[serde(default = "default_line_height")]
-    pub line_height: f32,
+    pub line_height: f32, // JSON: lineHeight
     #[serde(default = "default_primary_color")]
-    pub primary_color: String,
+    pub primary_color: String, // JSON: primaryColor
+
     #[serde(default = "default_template_id")]
-    pub template_id: String,
+    pub template_id: String, // JSON: templateId
 }
 
 impl Default for CvTheme {
@@ -105,7 +105,7 @@ pub struct CvSection {
     #[serde(default = "default_uuid_str")]
     pub id: String,
     #[serde(default = "default_section_type")]
-    #[serde(rename = "type")]
+    #[serde(rename = "type")] // Map trường "type" từ JSON vào "r#type" trong Rust
     pub r#type: String,
     #[serde(default)]
     pub title: String,
@@ -120,13 +120,12 @@ pub struct CvSection {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CvLayoutState {
-    // Dùng alias để "chấp hết" các loại tên cột từ Frontend gửi lên
-    #[serde(default, alias = "column-1")]
-    pub full_width: Vec<String>,
-    #[serde(default, alias = "column-2")]
-    pub left_column: Vec<String>,
-    #[serde(default, alias = "column-3")]
-    pub right_column: Vec<String>,
+    #[serde(default)]
+    pub full_width: Vec<String>, // JSON: fullWidth
+    #[serde(default)]
+    pub left_column: Vec<String>, // JSON: leftColumn
+    #[serde(default)]
+    pub right_column: Vec<String>, // JSON: rightColumn
     #[serde(default)]
     pub unused: Vec<String>,
 }
@@ -135,9 +134,10 @@ pub struct CvLayoutState {
 #[serde(rename_all = "camelCase")]
 pub struct CvLayoutData {
     #[serde(default = "default_template_id")]
-    pub template_id: String,
+    pub template_id: String, // JSON: templateId
+
     #[serde(default)]
-    pub personal_info: PersonalInfo,
+    pub personal_info: PersonalInfo, // JSON: personalInfo
     #[serde(default)]
     pub theme: CvTheme,
     #[serde(default)]
@@ -170,7 +170,7 @@ pub struct Cv {
     pub updated_at: DateTime<Utc>,
 }
 
-// --- 4. HELPER FUNCTIONS ---
+// --- 4. HELPERS ---
 
 fn default_font_family() -> String {
     "Inter".into()

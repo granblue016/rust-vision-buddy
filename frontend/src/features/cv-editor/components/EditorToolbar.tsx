@@ -8,6 +8,7 @@ import {
   Baseline,
   Printer,
   Globe,
+  LayoutTemplate, // Thêm icon cho Template
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,13 @@ const FONTS = [
   },
 ];
 
+// Định nghĩa danh sách các mẫu CV
+const TEMPLATES = [
+  { id: "standard-01", label: { vi: "Mẫu Tiêu chuẩn", en: "Standard" } },
+  { id: "harvard-01", label: { vi: "Mẫu Harvard", en: "Harvard" } },
+  { id: "modern-01", label: { vi: "Mẫu Hiện đại", en: "Modern" } },
+];
+
 const EditorToolbar = ({
   cvName,
   onSave,
@@ -37,28 +45,27 @@ const EditorToolbar = ({
   onSave: () => Promise<void>;
   isSaving: boolean;
 }) => {
-  // Lấy data, actions và đặc biệt là setLanguage từ store
   const { data, updateTheme, exportPdf, setLanguage } = useCvStore();
 
   if (!data) return null;
 
-  // Xác định bộ từ điển dựa trên language trong store
   const t = data.language === "en" ? en : vi;
+  const currentLang = data.language || "vi";
 
   const FONT_SIZES = [
     {
       id: "size-sm",
-      label: data.language === "en" ? "Small" : "Nhỏ",
+      label: currentLang === "en" ? "Small" : "Nhỏ",
       value: "12px",
     },
     {
       id: "size-md",
-      label: data.language === "en" ? "Medium" : "Vừa",
+      label: currentLang === "en" ? "Medium" : "Vừa",
       value: "14px",
     },
     {
       id: "size-lg",
-      label: data.language === "en" ? "Large" : "Lớn",
+      label: currentLang === "en" ? "Large" : "Lớn",
       value: "16px",
     },
   ];
@@ -75,6 +82,24 @@ const EditorToolbar = ({
       </Link>
 
       <div className="w-px h-6 bg-slate-200 shrink-0" />
+
+      {/* CHỌN TEMPLATE (Mới thêm) */}
+      <div className="flex items-center gap-2 ml-2 shrink-0">
+        <LayoutTemplate className="w-3.5 h-3.5 text-indigo-500" />
+        <select
+          value={data.theme.templateId || "standard-01"}
+          onChange={(e) => updateTheme({ templateId: e.target.value })}
+          className="text-[11px] bg-indigo-50/50 border border-indigo-100 text-indigo-700 rounded-md px-2 py-1.5 font-black outline-none hover:bg-indigo-100/50 transition-all cursor-pointer uppercase tracking-tighter"
+        >
+          {TEMPLATES.map((tmpl) => (
+            <option key={tmpl.id} value={tmpl.id}>
+              {tmpl.label[currentLang as "vi" | "en"]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="w-px h-4 bg-slate-100 shrink-0 hidden md:block" />
 
       {/* Chọn Font */}
       <div className="flex items-center gap-2 ml-2 shrink-0">
@@ -110,19 +135,19 @@ const EditorToolbar = ({
 
       {/* Chọn Ngôn ngữ UI */}
       <div className="flex items-center gap-2 ml-2 shrink-0">
-        <Globe className="w-3.5 h-3.5 text-indigo-500" />
+        <Globe className="w-3.5 h-3.5 text-slate-400" />
         <select
           value={data.language || "vi"}
           onChange={(e) => setLanguage(e.target.value as "vi" | "en")}
-          className="text-[11px] bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-md px-2 py-1.5 font-bold outline-none hover:bg-indigo-100 transition-all cursor-pointer"
+          className="text-[11px] bg-slate-50 border border-slate-200 rounded-md px-2 py-1.5 font-bold outline-none hover:bg-slate-100 transition-all cursor-pointer"
         >
           <option value="vi">Tiếng Việt</option>
           <option value="en">English</option>
         </select>
       </div>
 
-      <div className="flex-1 text-center">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+      <div className="flex-1 text-center truncate px-4">
+        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] select-none">
           {cvName}
         </span>
       </div>
@@ -136,7 +161,6 @@ const EditorToolbar = ({
           </span>
         )}
 
-        {/* NÚT XUẤT PDF */}
         <Button
           onClick={exportPdf}
           disabled={isSaving}
@@ -149,12 +173,11 @@ const EditorToolbar = ({
           ) : (
             <Printer className="w-3.5 h-3.5 text-slate-500" />
           )}
-          <span className="text-xs uppercase">
+          <span className="text-xs uppercase hidden sm:inline">
             {isSaving ? t.common.syncing : t.common.export_pdf}
           </span>
         </Button>
 
-        {/* NÚT LƯU */}
         <Button
           onClick={onSave}
           disabled={isSaving}

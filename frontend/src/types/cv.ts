@@ -1,6 +1,6 @@
 /**
- * Thông tin cá nhân tập trung (Header)
- * Đã chuẩn hóa camelCase để khớp với Store và Backend
+ * Thông tin cá nhân (Header)
+ * Chuẩn hóa camelCase để khớp với Store và Backend Rust
  */
 export interface PersonalInfo {
   fullName: string;
@@ -15,20 +15,21 @@ export interface PersonalInfo {
 
 /**
  * Định nghĩa Theme của CV
- * Đồng bộ tuyệt đối với Struct CvTheme trong Rust (#[serde(rename_all = "camelCase")])
+ * Đồng bộ tuyệt đối với Struct CvTheme trong Rust
  */
 export interface CvTheme {
   fontFamily: string; // Ví dụ: "Inter, sans-serif"
   fontSize: string; // Ví dụ: "14px"
   lineHeight: number; // Ví dụ: 1.5
   primaryColor: string;
-  templateId: string;
+  templateId: string; // QUAN TRỌNG: Đồng bộ với logic đa template
   secondaryColor?: string;
   backgroundImage?: string;
 }
 
 /**
- * Đơn vị dữ liệu nhỏ nhất trong một Section (Kinh nghiệm, Học vấn, Kỹ năng...)
+ * Đơn vị dữ liệu nhỏ nhất trong một Section
+ * Sử dụng thống nhất tên CvItem (Thay thế cho CvSectionItem cũ)
  */
 export interface CvItem {
   id: string;
@@ -44,7 +45,7 @@ export interface CvItem {
 }
 
 /**
- * Các loại Section được hỗ trợ trong hệ thống
+ * Các loại Section được hỗ trợ
  */
 export type CvSectionType =
   | "header"
@@ -87,10 +88,11 @@ export interface CvLayoutState {
 }
 
 /**
- * Dữ liệu layout chính (Lưu dạng JSONB trong Postgres)
+ * Dữ liệu layout chính (Khớp với Json<CvLayoutData> trong Rust)
+ * Sử dụng thống nhất tên CvLayoutData (Thay thế cho CvData cũ)
  */
 export interface CvLayoutData {
-  templateId: string;
+  templateId: string; // ID mẫu CV (e.g., "harvard-01", "modern-01")
   language: "vi" | "en";
   personalInfo: PersonalInfo;
   theme: CvTheme;
@@ -99,7 +101,7 @@ export interface CvLayoutData {
 }
 
 /**
- * Interface đại diện cho một thực thể CV từ API (Model từ DB)
+ * Interface thực thể CV từ API
  */
 export interface Cv {
   id: string;
@@ -111,7 +113,7 @@ export interface Cv {
 }
 
 /**
- * Request DTOs cho API
+ * DTOs cho API Requests
  */
 export interface CreateCvRequest {
   name: string;
@@ -124,7 +126,7 @@ export interface UpdateCvRequest {
 }
 
 /**
- * Định nghĩa đầy đủ cho Zustand Store (Kế hoạch quản lý Font/Size)
+ * Định nghĩa Zustand Store State & Actions
  */
 export interface CvStoreState {
   currentCvId: string | null;
@@ -143,16 +145,14 @@ export interface CvStoreState {
   triggerAutoSave: () => void;
   exportPdf: () => Promise<void>;
 
-  // Action chuyển đổi ngôn ngữ
+  // Actions dữ liệu
   setLanguage: (lang: "vi" | "en") => void;
-
-  // Actions chỉnh sửa giao diện (Quan trọng cho Font/Size)
   setTemplateId: (id: string) => void;
   updateTheme: (newTheme: Partial<CvTheme>) => void;
   updateCvField: (field: string, value: any) => void;
   updatePersonalInfo: (field: keyof PersonalInfo, value: string) => void;
 
-  // Actions cấu trúc layout (DnD)
+  // Actions Layout (DnD)
   reorderSections: (columnId: LayoutColumnId, newIds: string[]) => void;
   moveSection: (
     sectionId: string,
@@ -161,12 +161,12 @@ export interface CvStoreState {
     index: number,
   ) => void;
 
-  // Actions quản lý Section
+  // Actions Section
   toggleSectionVisibility: (sectionId: string) => void;
   updateSectionTitle: (sectionId: string, title: string) => void;
   updateSectionContent: (sectionId: string, content: string) => void;
 
-  // Actions quản lý Item bên trong Section
+  // Actions Item
   updateItemField: (
     sectionId: string,
     itemId: string,
@@ -178,11 +178,10 @@ export interface CvStoreState {
 }
 
 /**
- * Dữ liệu khởi tạo mặc định (Fallback data)
- * Đã thiết lập giá trị mặc định cho Font và Size chữ
+ * Dữ liệu mặc định (Dùng cho tạo mới CV hoặc fallback)
  */
 export const DEFAULT_CV_DATA: CvLayoutData = {
-  templateId: "modern-01",
+  templateId: "harvard-01",
   language: "vi",
   personalInfo: {
     fullName: "NGUYỄN VĂN A",
@@ -194,21 +193,23 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
     website: "github.com/nguyenvana",
   },
   theme: {
-    templateId: "modern-01",
-    fontFamily: "Inter, sans-serif", // Font mặc định
-    fontSize: "14px", // Size mặc định
+    templateId: "harvard-01",
+    fontFamily: "Inter, sans-serif",
+    fontSize: "14px",
     lineHeight: 1.5,
-    primaryColor: "#4f46e5",
+    primaryColor: "#1a1a1a",
   },
   layout: {
-    fullWidth: ["section-header"],
-    leftColumn: ["section-skills"],
-    rightColumn: [
+    fullWidth: [
+      "section-header",
       "section-summary",
       "section-exp",
       "section-edu",
+      "section-skills",
       "section-projects",
     ],
+    leftColumn: [],
+    rightColumn: [],
     unused: [],
   },
   sections: [
@@ -231,9 +232,9 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
     {
       id: "section-summary",
       type: "summary",
-      title: "Giới thiệu bản thân",
+      title: "Tóm tắt chuyên môn",
       visible: true,
-      content: "Viết mục tiêu nghề nghiệp hoặc giới thiệu ngắn...",
+      content: "Nhập tóm tắt chuyên môn của bạn tại đây...",
       items: [],
     },
     {
@@ -244,10 +245,10 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
       items: [
         {
           id: "exp-1",
-          title: "SENIOR DEVELOPER",
-          subtitle: "Công ty Công nghệ ABC",
+          title: "Vị trí công việc",
+          subtitle: "Tên công ty",
           date: "2022 - Hiện tại",
-          description: "Mô tả chi tiết công việc của bạn...",
+          description: "Mô tả các thành tựu và công việc...",
         },
       ],
     },
@@ -259,10 +260,9 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
       items: [
         {
           id: "edu-1",
-          title: "KỸ THUẬT PHẦN MỀM",
-          subtitle: "Đại học Sài Gòn",
+          title: "Tên ngành học",
+          subtitle: "Tên trường đại học",
           date: "2018 - 2022",
-          description: "Mô tả quá trình học tập...",
         },
       ],
     },
@@ -272,21 +272,21 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
       title: "Kỹ năng",
       visible: true,
       items: [
-        { id: "sk-1", title: "React/TypeScript" },
-        { id: "sk-2", title: "Rust/Axum" },
+        { id: "sk-1", title: "Kỹ năng 1" },
+        { id: "sk-2", title: "Kỹ năng 2" },
       ],
     },
     {
       id: "section-projects",
       type: "projects",
-      title: "Dự án tiêu biểu",
+      title: "Dự án",
       visible: true,
       items: [
         {
           id: "pj-1",
-          title: "HỆ THỐNG QUẢN LÝ CV",
+          title: "Tên dự án",
           date: "2024",
-          description: "Xây dựng hệ thống kéo thả CV chuyên nghiệp...",
+          description: "Mô tả ngắn gọn về dự án...",
         },
       ],
     },

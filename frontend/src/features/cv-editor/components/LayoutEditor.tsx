@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   DragDropContext,
   Droppable,
@@ -7,28 +7,33 @@ import {
 } from "@hello-pangea/dnd";
 import { useCvStore } from "@/stores/useCvStore";
 import { LayoutColumnId, CvSection } from "@/types/cv";
-import {
-  GripVertical,
-  EyeOff,
-  Plus,
-  Calendar,
-  Trash2,
-  Layout,
-  Eye,
-} from "lucide-react";
+import { GripVertical, EyeOff, Layout, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InlineRichText } from "./InlineRichText";
+
+// Import Blocks
 import { HeaderBlock } from "./HeaderBlock";
+import { EducationBlock } from "./EducationBlock";
+import { ExperienceBlock } from "./ExperienceBlock";
+import { ProjectsBlock } from "./ProjectsBlock";
+import { SkillsBlock } from "./SkillsBlock";
+
+// --- HELPERS ---
+const getTemplateType = (id: string) => ({
+  isHarvard: id.toLowerCase().includes("harvard"),
+  isModern: id.toLowerCase().includes("modern"),
+  isStandard: id.toLowerCase().includes("standard"),
+});
 
 const LayoutEditor = () => {
   const { data, moveSection, toggleSectionVisibility } = useCvStore();
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result;
-    if (!destination) return;
     if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
+      !destination ||
+      (source.droppableId === destination.droppableId &&
+        source.index === destination.index)
     )
       return;
 
@@ -40,72 +45,115 @@ const LayoutEditor = () => {
     );
   };
 
-  const getSectionById = (id: string): CvSection | undefined => {
-    return data?.sections.find((s) => s.id === id);
-  };
+  const getSectionById = (id: string) =>
+    data?.sections.find((s) => s.id === id);
 
   if (!data) return null;
 
+  const templateId = data.theme.templateId || "standard-01";
+  const { isHarvard, isModern, isStandard } = useMemo(
+    () => getTemplateType(templateId),
+    [templateId],
+  );
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="space-y-12 p-8 max-w-[1000px] mx-auto pb-32">
-        {/* Tờ giấy A4 Preview Editor */}
-        <div className="bg-white border border-slate-200 shadow-[0_0_50px_rgba(0,0,0,0.1)] min-h-[1123px] relative transition-all overflow-hidden font-sans rounded-sm">
-          {/* Watermark */}
-          <div className="absolute top-4 right-6 text-[10px] text-slate-300 font-bold uppercase tracking-[0.3em] select-none">
-            A4 Canvas Editor
-          </div>
-
-          {/* Vùng Header (Full Width) */}
-          <div className="p-12 pb-6">
+      <div className="space-y-12 p-8 max-w-[1100px] mx-auto pb-32 select-none">
+        {/* TỜ GIẤY A4 CANVAS */}
+        <div
+          className={cn(
+            "bg-white border border-slate-200 shadow-2xl min-h-[297mm] relative transition-all duration-500 overflow-hidden mx-auto print:shadow-none",
+            isHarvard ? "font-serif" : "font-sans",
+          )}
+          style={{ width: "210mm" }}
+        >
+          {/* 1. VÙNG HEADER (FULL WIDTH) */}
+          <div
+            className={cn(
+              "transition-colors duration-500",
+              isModern
+                ? "bg-slate-50/80 border-b border-slate-100 p-12 pb-8"
+                : "p-12 pb-6",
+            )}
+          >
             <SectionColumn
               id="fullWidth"
               sectionIds={data.layout.fullWidth || []}
               getSection={getSectionById}
               toggleVisibility={toggleSectionVisibility}
+              templateId={templateId}
             />
           </div>
 
-          {/* Nội dung chính 2 cột */}
-          <div className="grid grid-cols-12 gap-0 px-12 pb-12">
-            {/* Cột Trái */}
-            <div className="col-span-4 border-r border-slate-100 pr-8 min-h-[600px]">
+          {/* 2. VÙNG NỘI DUNG CHÍNH */}
+          <div
+            className={cn(
+              "grid gap-0 px-12 pb-12 transition-all duration-500",
+              isHarvard ? "grid-cols-1" : "grid-cols-12",
+            )}
+          >
+            {/* CỘT TRÁI (LEFT) */}
+            <div
+              className={cn(
+                "transition-all duration-500",
+                isHarvard && "col-span-1",
+                isStandard &&
+                  "col-span-4 border-r border-slate-100 pr-8 min-h-[400px]",
+                isModern && "col-span-8 pr-10 min-h-[400px]",
+              )}
+            >
               <SectionColumn
                 id="leftColumn"
                 sectionIds={data.layout.leftColumn || []}
                 getSection={getSectionById}
                 toggleVisibility={toggleSectionVisibility}
+                templateId={templateId}
               />
             </div>
 
-            {/* Cột Phải */}
-            <div className="col-span-8 pl-10 space-y-10 min-h-[600px]">
+            {/* CỘT PHẢI (RIGHT) */}
+            <div
+              className={cn(
+                "transition-all duration-500",
+                isHarvard && "col-span-1 mt-6",
+                isStandard && "col-span-8 pl-10 space-y-10 min-h-[400px]",
+                isModern &&
+                  "col-span-4 border-l border-slate-50 pl-8 space-y-8 min-h-[400px]",
+              )}
+            >
               <SectionColumn
                 id="rightColumn"
                 sectionIds={data.layout.rightColumn || []}
                 getSection={getSectionById}
                 toggleVisibility={toggleSectionVisibility}
+                templateId={templateId}
               />
             </div>
           </div>
+
+          {/* DẢI TRANG TRÍ FOOTER (CHỈ CHO MODERN/STANDARD) */}
+          {!isHarvard && (
+            <div
+              className="absolute bottom-0 left-0 w-full h-2 transition-colors duration-500"
+              style={{ backgroundColor: data.theme.primaryColor || "#3b82f6" }}
+            />
+          )}
         </div>
 
-        {/* KHO LƯU TRỮ */}
-        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-8 transition-all">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2 tracking-widest">
-              <Layout size={14} className="text-indigo-500" />
-              Thành phần lưu trữ
+        {/* KHO LƯU TRỮ (UNUSED) */}
+        <div className="bg-slate-100/50 border-2 border-dashed border-slate-200 rounded-[2rem] p-8">
+          <div className="flex items-center gap-3 mb-6 opacity-50">
+            <Layout size={16} />
+            <h3 className="text-xs font-bold uppercase tracking-[0.2em]">
+              Thành phần chưa dùng
             </h3>
-            <span className="text-[10px] text-slate-400 font-medium italic">
-              Kéo thả vào bản in để sử dụng
-            </span>
           </div>
           <SectionColumn
             id="unused"
             sectionIds={data.layout.unused || []}
             getSection={getSectionById}
             toggleVisibility={toggleSectionVisibility}
+            templateId={templateId}
             isHorizontal
           />
         </div>
@@ -114,180 +162,93 @@ const LayoutEditor = () => {
   );
 };
 
-// --- RENDER NỘI DUNG ---
-const SectionRenderer = ({ section }: { section: CvSection }) => {
-  const {
-    data,
-    updateItemField,
-    updateSectionTitle,
-    addItem,
-    removeItem,
-    updateSectionContent,
-  } = useCvStore();
+// --- RENDERER PHÂN TÁCH LOGIC ---
+const SectionRenderer = ({
+  section,
+  templateId,
+}: {
+  section: CvSection;
+  templateId: string;
+}) => {
+  const { data, updateSectionTitle, updateSectionContent } = useCvStore();
+  const { isHarvard, isModern } = getTemplateType(templateId);
+  const primaryColor = data?.theme.primaryColor || "#3b82f6";
 
-  const sType = section.type.toLowerCase();
-
-  const SectionTitle = () => (
-    <div className="border-b-2 border-slate-900 pb-1 mb-4">
+  const SectionHeader = () => (
+    <div
+      className={cn(
+        "mb-4 transition-all duration-300",
+        isHarvard ? "border-b border-slate-900 pb-0.5" : "border-b-2 pb-1",
+      )}
+      style={{ borderColor: isHarvard ? "#000" : primaryColor }}
+    >
       <InlineRichText
         value={section.title}
         onChange={(val) => updateSectionTitle(section.id, val)}
-        className="text-sm font-black text-slate-900 uppercase tracking-widest"
+        className={cn(
+          "font-bold uppercase tracking-wider",
+          isHarvard ? "text-[14px] text-black" : "text-[13px]",
+        )}
+        style={{
+          color: isHarvard ? "#000" : isModern ? primaryColor : "#1e293b",
+        }}
       />
     </div>
   );
 
-  const AddButton = () => (
-    <button
-      onClick={() => addItem(section.id)}
-      className="mt-4 flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 transition-all uppercase tracking-wider group-hover:opacity-100 opacity-0"
-    >
-      <Plus size={12} strokeWidth={3} /> Thêm {section.title}
-    </button>
-  );
+  const blockProps = {
+    section,
+    templateId,
+    primaryColor,
+    isPreview: false,
+  };
 
-  switch (sType) {
+  switch (section.type.toLowerCase()) {
     case "header":
       return (
         <HeaderBlock
           personalInfo={data?.personalInfo}
           theme={data?.theme}
           isPreview={false}
+          templateId={templateId}
         />
       );
-
     case "summary":
       return (
-        <div className="group">
-          <SectionTitle />
+        <div className="group/section">
+          <SectionHeader />
           <InlineRichText
             value={section.content || ""}
             onChange={(val) => updateSectionContent(section.id, val)}
-            className="text-[11px] text-slate-600 leading-relaxed text-justify"
-            placeholder="Viết lời giới thiệu bản thân..."
+            className={cn(
+              "leading-relaxed text-justify",
+              isHarvard ? "text-[13px]" : "text-[12px] text-slate-600",
+            )}
           />
         </div>
       );
-
     case "experience":
+      return <ExperienceBlock {...blockProps} />;
     case "education":
+      return <EducationBlock {...blockProps} />;
     case "projects":
-      return (
-        <div className="group">
-          <SectionTitle />
-          <div className="space-y-6">
-            {(section.items || []).map((item) => (
-              <div key={item.id} className="group/item relative space-y-1">
-                <button
-                  onClick={() => removeItem(section.id, item.id)}
-                  className="absolute -left-8 top-1 opacity-0 group-hover/item:opacity-100 p-1.5 text-slate-300 hover:text-red-500 transition-all"
-                >
-                  <Trash2 size={12} />
-                </button>
-
-                <div className="flex justify-between items-start">
-                  <InlineRichText
-                    value={item.title || ""}
-                    onChange={(v) =>
-                      updateItemField(section.id, item.id, "title", v)
-                    }
-                    className="font-bold text-[12px] text-slate-800 uppercase flex-1"
-                    placeholder="Tên vị trí"
-                  />
-                  <div className="flex items-center gap-1 text-slate-400 font-medium text-[10px] shrink-0 mt-0.5">
-                    <Calendar size={10} />
-                    <InlineRichText
-                      value={item.date || ""}
-                      onChange={(v) =>
-                        updateItemField(section.id, item.id, "date", v)
-                      }
-                      className="text-right min-w-[70px]"
-                      placeholder="Thời gian"
-                    />
-                  </div>
-                </div>
-
-                <InlineRichText
-                  value={item.subtitle || ""}
-                  onChange={(v) =>
-                    updateItemField(section.id, item.id, "subtitle", v)
-                  }
-                  className="text-[11px] text-indigo-600 font-bold"
-                  placeholder="Tên tổ chức/Công ty"
-                />
-
-                <InlineRichText
-                  value={item.description || ""}
-                  onChange={(v) =>
-                    updateItemField(section.id, item.id, "description", v)
-                  }
-                  className="text-[11px] text-slate-600 leading-relaxed text-justify mt-1"
-                  placeholder="Mô tả chi tiết..."
-                />
-              </div>
-            ))}
-          </div>
-          <AddButton />
-        </div>
-      );
-
+      return <ProjectsBlock {...blockProps} />;
     case "skills":
-      return (
-        <div className="group">
-          <SectionTitle />
-          <div className="flex flex-wrap gap-2">
-            {(section.items || []).map((s) => (
-              <div
-                key={s.id}
-                className="group/skill relative flex items-center"
-              >
-                <InlineRichText
-                  value={s.title || ""}
-                  onChange={(v) =>
-                    updateItemField(section.id, s.id, "title", v)
-                  }
-                  className="px-2 py-1 bg-slate-50 text-slate-700 border border-slate-200 rounded text-[10px] font-bold hover:border-indigo-400 transition-colors"
-                  placeholder="Skill"
-                />
-                <button
-                  onClick={() => removeItem(section.id, s.id)}
-                  className="ml-1 opacity-0 group-hover/skill:opacity-100 text-slate-300 hover:text-red-500 transition-all"
-                >
-                  <Trash2 size={10} />
-                </button>
-              </div>
-            ))}
-            <button
-              onClick={() => addItem(section.id)}
-              className="p-1 text-indigo-400 hover:scale-110 group-hover:opacity-100 opacity-0 transition-all"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-        </div>
-      );
-
+      return <SkillsBlock {...blockProps} />;
     default:
       return null;
   }
 };
 
-// --- DND COMPONENTS ---
-interface ColumnProps {
-  id: LayoutColumnId;
-  sectionIds: string[];
-  getSection: (id: string) => CvSection | undefined;
-  toggleVisibility: (id: string) => void;
-  isHorizontal?: boolean;
-}
-
+// --- COMPONENT DND NỘI BỘ ---
 const SectionColumn = ({
   id,
   sectionIds,
   getSection,
   toggleVisibility,
+  templateId,
   isHorizontal,
-}: ColumnProps) => {
+}: any) => {
   return (
     <Droppable
       droppableId={id}
@@ -298,16 +259,15 @@ const SectionColumn = ({
           {...provided.droppableProps}
           ref={provided.innerRef}
           className={cn(
-            "flex transition-all duration-300 rounded-xl",
+            "flex transition-all duration-300",
             isHorizontal
-              ? "flex-row flex-wrap gap-4 min-h-[120px] items-center justify-start"
-              : "flex-col gap-10 min-h-[100px]",
+              ? "flex-row flex-wrap gap-4 min-h-[100px]"
+              : "flex-col gap-8 min-h-[50px]",
             snapshot.isDraggingOver &&
-              "bg-indigo-50/40 ring-2 ring-indigo-200 ring-dashed p-4 shadow-inner",
-            !snapshot.isDraggingOver && id !== "unused" && "py-2",
+              "bg-slate-50/50 ring-2 ring-indigo-100 ring-dashed p-4 rounded-xl",
           )}
         >
-          {sectionIds.map((sid, index) => {
+          {sectionIds.map((sid: string, index: number) => {
             const section = getSection(sid);
             if (!section) return null;
 
@@ -318,36 +278,27 @@ const SectionColumn = ({
                     ref={p.innerRef}
                     {...p.draggableProps}
                     className={cn(
-                      "group relative bg-white",
-                      s.isDragging
-                        ? "shadow-2xl ring-2 ring-indigo-500 scale-[1.05] z-[100] rounded-lg p-4"
-                        : "hover:outline hover:outline-1 hover:outline-indigo-100 hover:rounded-sm",
+                      "group relative bg-white transition-shadow",
+                      s.isDragging &&
+                        "shadow-2xl ring-2 ring-primary z-50 p-4 rounded-lg",
                       !section.visible &&
                         id !== "unused" &&
-                        "opacity-30 grayscale blur-[0.5px]",
+                        "opacity-25 grayscale hover:opacity-100",
                       id === "unused" &&
-                        "border border-slate-200 p-4 rounded-xl w-44 bg-white shadow-sm flex flex-col items-center justify-center hover:border-indigo-300 hover:shadow-md transition-all active:scale-95",
+                        "border border-slate-200 p-4 rounded-xl w-44 bg-white shadow-sm flex items-center justify-center text-center",
                     )}
                   >
-                    {/* Controls (Grip & Toggle) */}
-                    <div
-                      className={cn(
-                        "absolute -top-3 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-[110]",
-                        s.isDragging && "opacity-0",
-                      )}
-                    >
+                    {/* NÚT ĐIỀU KHIỂN */}
+                    <div className="absolute -top-3 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-[60] print:hidden">
                       <div
                         {...p.dragHandleProps}
-                        className="p-1.5 bg-white shadow-md border border-slate-100 rounded-md text-slate-400 hover:text-indigo-600 cursor-grab active:cursor-grabbing"
+                        className="p-1.5 bg-white shadow-md border rounded-md cursor-grab active:cursor-grabbing text-slate-400 hover:text-primary"
                       >
                         <GripVertical size={14} />
                       </div>
                       <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          toggleVisibility(sid);
-                        }}
-                        className="p-1.5 bg-white shadow-md border border-slate-100 rounded-md text-slate-400 hover:text-indigo-600"
+                        onClick={() => toggleVisibility(sid)}
+                        className="p-1.5 bg-white shadow-md border rounded-md text-slate-400 hover:text-primary"
                       >
                         {section.visible ? (
                           <EyeOff size={14} />
@@ -358,18 +309,14 @@ const SectionColumn = ({
                     </div>
 
                     {id === "unused" ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
-                          <Plus size={14} className="text-slate-400" />
-                        </div>
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter text-center">
-                          {section.title}
-                        </span>
-                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-tight text-slate-400">
+                        {section.title}
+                      </span>
                     ) : (
-                      <div className="relative">
-                        <SectionRenderer section={section} />
-                      </div>
+                      <SectionRenderer
+                        section={section}
+                        templateId={templateId}
+                      />
                     )}
                   </div>
                 )}
@@ -377,14 +324,6 @@ const SectionColumn = ({
             );
           })}
           {provided.placeholder}
-
-          {sectionIds.length === 0 && !snapshot.isDraggingOver && (
-            <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-100 rounded-lg py-8 min-w-[200px]">
-              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                Kéo nội dung vào đây
-              </span>
-            </div>
-          )}
         </div>
       )}
     </Droppable>
