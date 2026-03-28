@@ -9,8 +9,8 @@ import { Cv } from "@/types/cv";
 /**
  * HELPER: Loại bỏ thẻ HTML để hiển thị tên CV sạch sẽ trên Dashboard
  */
-const stripHtml = (text: string): string => {
-  if (!text) return "";
+const stripHtml = (text: string | null | undefined): string => {
+  if (!text) return "CV chưa đặt tên";
   return text.replace(/<\/?[^>]+(>|$)/g, "").trim();
 };
 
@@ -42,11 +42,6 @@ const DashboardPage = () => {
   const handleCreateNewCv = async () => {
     setIsCreating(true);
     try {
-      /**
-       * Backend Rust nhận snake_case cho request body (CreateCvRequest)
-       * hoặc camelCase tùy vào cấu hình Serde ở Backend.
-       * Theo chuẩn hóa hiện tại, ta dùng camelCase cho đồng bộ.
-       */
       const newCvRequest = {
         name: "CV mới chưa đặt tên",
         templateId: "modern-01",
@@ -120,18 +115,19 @@ const DashboardPage = () => {
                   <div className="aspect-[210/160] bg-muted/50 border-b border-border flex items-center justify-center relative">
                     <FileText className="w-10 h-10 text-muted-foreground/40" />
                     <span className="absolute top-2 right-2 text-[10px] bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 font-medium uppercase">
-                      {/* SỬA LỖI ts(2551): Chuyển layout_data -> layoutData */}
+                      {/* Sử dụng layoutData thay vì layout_data */}
                       {cv.layoutData?.templateId?.replace("-", " ") || "Modern"}
                     </span>
                   </div>
 
                   <div className="p-4">
                     <h3 className="font-medium text-sm text-foreground group-hover:text-accent truncate">
+                      {/* Đảm bảo hiển thị tên đã làm sạch HTML */}
                       {stripHtml(cv.name)}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
                       <Clock className="w-3 h-3" />
-                      {/* SỬA LỖI ts(2551): Chuyển updated_at -> updatedAt */}
+                      {/* Sử dụng updatedAt thay vì updated_at */}
                       {cv.updatedAt
                         ? new Date(cv.updatedAt).toLocaleDateString("vi-VN")
                         : "Vừa xong"}

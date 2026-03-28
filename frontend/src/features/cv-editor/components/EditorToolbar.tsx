@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Printer,
   LayoutTemplate,
-  Cloud,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -22,21 +21,16 @@ const TEMPLATES = [
 ];
 
 /**
- * HELPER: Loại bỏ thẻ HTML để hiển thị tên sạch sẽ
+ * HELPER: Loại bỏ thẻ HTML để dữ liệu gửi lên Rust Backend sạch sẽ (Tránh lỗi 422)
  */
 const stripHtml = (text: string): string => {
   if (!text) return "";
   return text.replace(/<\/?[^>]+(>|$)/g, "").trim();
 };
 
-const EditorToolbar = ({
-  cvName,
-  isSaving,
-}: {
-  cvName: string;
-  isSaving: boolean;
-}) => {
-  const { data, updateTheme } = useCvStore();
+const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
+  // Lấy name và updateCvName trực tiếp từ Store để đồng bộ dữ liệu
+  const { data, updateTheme, name, updateCvName, saveChanges } = useCvStore();
   const [isPrinting, setIsPrinting] = useState(false);
 
   if (!data) return null;
@@ -84,12 +78,25 @@ const EditorToolbar = ({
         </div>
       </div>
 
-      {/* TRUNG TÂM: Tên CV (Read-only) - Giải pháp ngăn chặn lỗi 422 */}
+      {/* TRUNG TÂM: Tên CV (INPUT) - Đã chuyển từ span sang input */}
       <div className="flex-[2] flex justify-center px-4">
         <div className="flex flex-col items-center max-w-[400px] w-full">
-          <span className="text-sm font-bold text-slate-700 truncate px-3 py-1 bg-slate-50/50 rounded-md border border-transparent hover:border-slate-100 transition-all">
-            {stripHtml(cvName) || "CV chưa đặt tên"}
-          </span>
+          <input
+            type="text"
+            value={name || ""}
+            onChange={(e) => updateCvName(e.target.value)}
+            onBlur={() => {
+              // Làm sạch dữ liệu và lưu khi click ra ngoài
+              const cleanName = stripHtml(name);
+              updateCvName(cleanName);
+              saveChanges();
+            }}
+            className="w-full text-center text-sm font-bold text-slate-700 px-3 py-1
+                       bg-slate-50/50 rounded-md border border-transparent
+                       focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-50
+                       hover:bg-slate-100 transition-all outline-none truncate"
+            placeholder="Nhập tên CV..."
+          />
         </div>
       </div>
 

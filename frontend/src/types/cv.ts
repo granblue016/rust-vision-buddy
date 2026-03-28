@@ -1,34 +1,24 @@
 /**
- * Thông tin cá nhân
- * Khớp tuyệt đối với struct PersonalInfo trong Rust
- * Lưu ý: Rust dùng snake_case nội bộ nhưng JSON nhận/gửi là camelCase
+ * Thông tin cá nhân - Khớp tuyệt đối với Backend Rust
  */
 export interface PersonalInfo {
-  fullName: string; // Rust: full_name
+  fullName: string;
   title: string;
   email: string;
   phone: string;
   address: string;
   website: string;
-  avatar: string | null; // Rust: Option<String>
+  avatar: string | null;
 }
 
-/**
- * Định nghĩa Theme của CV
- * Khớp tuyệt đối với struct CvTheme trong Rust
- */
 export interface CvTheme {
-  fontFamily: string; // Rust: font_family
-  fontSize: string; // Rust: font_size
-  lineHeight: number; // Rust: line_height (f32)
+  fontFamily: string;
+  fontSize: string;
+  lineHeight: number;
   primaryColor: string;
   templateId: string;
 }
 
-/**
- * Đơn vị dữ liệu nhỏ nhất trong một Section
- * Khớp tuyệt đối với struct CvSectionItem trong Rust
- */
 export interface CvItem {
   id: string;
   title: string;
@@ -41,21 +31,15 @@ export interface CvItem {
   link: string | null;
 }
 
-/**
- * Định nghĩa cấu trúc Section
- */
 export interface CvSection {
   id: string;
-  type: string; // Rust dùng r#type, JSON là "type"
+  type: string;
   title: string;
   visible: boolean;
   content: string | null;
   items: CvItem[];
 }
 
-/**
- * Trạng thái bố cục (Layout)
- */
 export interface CvLayoutState {
   fullWidth: string[];
   leftColumn: string[];
@@ -63,9 +47,6 @@ export interface CvLayoutState {
   unused: string[];
 }
 
-/**
- * Dữ liệu toàn bộ CV (Dữ liệu logic)
- */
 export interface CvLayoutData {
   templateId: string;
   personalInfo: PersonalInfo;
@@ -75,24 +56,22 @@ export interface CvLayoutData {
   language?: "vi" | "en";
 }
 
-/**
- * Model CV từ Database
- * SỬA LỖI QUAN TRỌNG: layout_data -> layoutData để khớp với Serde camelCase của Rust
- */
 export interface Cv {
   id: string;
-  userId: string; // Chuẩn hóa camelCase cho user_id
+  userId: string;
   name: string;
-  layoutData: CvLayoutData; // Đã đổi từ layout_data -> layoutData
-  createdAt: string; // Chuẩn hóa camelCase cho created_at
-  updatedAt: string; // Chuẩn hóa camelCase cho updated_at
+  layoutData: CvLayoutData;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
  * Định nghĩa Zustand Store State & Actions
+ * Đã bổ sung các trường và action bị thiếu trong ảnh lỗi của bạn
  */
 export interface CvStoreState {
   currentCvId: string | null;
+  name: string; // Sửa lỗi ts(2353) và ts(2339)
   data: CvLayoutData | null;
   isSaving: boolean;
   isLoading: boolean;
@@ -108,15 +87,19 @@ export interface CvStoreState {
   triggerAutoSave: () => void;
   exportPdf: () => Promise<void>;
 
-  // Actions dữ liệu tổng quát
+  // Actions cập nhật dữ liệu (Quan trọng)
+  updateCvName: (newName: string) => void;
   setLanguage: (lang: "vi" | "en") => void;
-  setTemplateId: (id: string) => void;
   updateTheme: (newTheme: Partial<CvTheme>) => void;
-  updateCvField: (field: keyof CvLayoutData, value: any) => void;
-  updateCvName: (name: string) => void;
   updatePersonalInfo: (updates: Partial<PersonalInfo>) => void;
 
-  // Actions Layout (DnD)
+  // Sửa lỗi ts(7006) trong useCvStore.ts
+  updateCvField: <K extends keyof CvLayoutData>(
+    field: K,
+    value: CvLayoutData[K],
+  ) => void;
+
+  // DnD & Layout
   reorderSections: (columnId: keyof CvLayoutState, newIds: string[]) => void;
   moveSection: (
     sectionId: string,
@@ -125,12 +108,10 @@ export interface CvStoreState {
     index: number,
   ) => void;
 
-  // Actions Section
+  // Section & Item management
   toggleSectionVisibility: (sectionId: string) => void;
   updateSectionTitle: (sectionId: string, title: string) => void;
   updateSectionContent: (sectionId: string, content: string | null) => void;
-
-  // Actions Item
   updateItemField: (
     sectionId: string,
     itemId: string,
@@ -141,11 +122,8 @@ export interface CvStoreState {
   removeItem: (sectionId: string, itemId: string) => void;
 }
 
-/**
- * Dữ liệu mặc định khởi tạo
- */
 export const DEFAULT_CV_DATA: CvLayoutData = {
-  templateId: "modern-01",
+  templateId: "standard-01",
   personalInfo: {
     fullName: "",
     title: "",
@@ -156,17 +134,12 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
     avatar: null,
   },
   theme: {
-    templateId: "modern-01",
+    templateId: "standard-01",
     fontFamily: "Inter",
     fontSize: "14px",
     lineHeight: 1.5,
     primaryColor: "#4f46e5",
   },
-  layout: {
-    fullWidth: [],
-    leftColumn: [],
-    rightColumn: [],
-    unused: [],
-  },
+  layout: { fullWidth: [], leftColumn: [], rightColumn: [], unused: [] },
   sections: [],
 };

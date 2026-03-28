@@ -1,18 +1,11 @@
 import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useCvStore } from "@/stores/useCvStore";
-import { DEFAULT_CV_DATA } from "@/types/cv";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import LayoutEditor from "../components/LayoutEditor";
 import EditorToolbar from "../components/EditorToolbar";
 import LayoutSidebar from "../components/LayoutSidebar";
-import {
-  Loader2,
-  AlertCircle,
-  ArrowLeft,
-  RefreshCcw,
-  CheckCircle2,
-} from "lucide-react";
+import { Loader2, AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import "@/styles/editor.css";
@@ -21,18 +14,11 @@ const EditorPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const {
-    fetchCv,
-    isLoading,
-    error,
-    data,
-    saveChanges,
-    isSaving,
-    setInitialData,
-    lastSaved,
-  } = useCvStore();
+  // Lấy dữ liệu từ store
+  const { fetchCv, isLoading, error, data, saveChanges, isSaving, lastSaved } =
+    useCvStore();
 
-  // Tăng thời gian delay auto-save lên một chút để tránh gửi request quá dồn dập
+  // Tăng thời gian delay auto-save lên 3s để ổn định
   useAutoSave(3000);
 
   useEffect(() => {
@@ -51,8 +37,7 @@ const EditorPage = () => {
     );
   }
 
-  // Sửa logic Check Error: Chỉ hiện lỗi khi thực sự có lỗi fetch hoặc không có ID
-  // Bỏ điều kiện check sections.length === 0 để cho phép tạo CV mới rỗng
+  // Error Screen
   if (error || !id) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center p-6 text-center bg-slate-50">
@@ -69,11 +54,10 @@ const EditorPage = () => {
   return (
     <div className="flex flex-col h-screen bg-[#f4f7f6]">
       <header className="sticky top-0 z-50">
-        <EditorToolbar
-          cvName={data?.personalInfo?.fullName || "Bản thảo CV"}
-          onSave={saveChanges}
-          isSaving={isSaving}
-        />
+        {/* GIẢI PHÁP LỖI ts(2322): Xóa cvName.
+          EditorToolbar hiện tại đã tự lấy 'name' từ useCvStore() bên trong nó.
+        */}
+        <EditorToolbar isSaving={isSaving} />
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -82,8 +66,7 @@ const EditorPage = () => {
         </aside>
 
         <main className="flex-1 overflow-y-auto p-12 scrollbar-hide">
-          <div className="max-w-[820px] mx-auto bg-white shadow-2xl">
-            {/* Nếu data chưa kịp load xong thì không render Editor để tránh crash */}
+          <div className="max-w-[820px] mx-auto bg-white shadow-2xl min-h-[1123px]">
             {data ? (
               <LayoutEditor />
             ) : (
@@ -97,8 +80,8 @@ const EditorPage = () => {
 
       <footer className="h-10 border-t border-slate-200 bg-white px-8 flex items-center justify-between text-[11px]">
         <div className="flex items-center gap-8">
-          <div className="bg-slate-100 px-2 py-1 rounded border">
-            ID: {id.substring(0, 8)}
+          <div className="bg-slate-100 px-2 py-1 rounded border text-slate-500">
+            ID: {id.substring(0, 8)}...
           </div>
 
           <div className="flex items-center gap-2">
@@ -108,7 +91,13 @@ const EditorPage = () => {
                 isSaving ? "bg-amber-400 animate-pulse" : "bg-emerald-500",
               )}
             />
-            <span className={isSaving ? "text-amber-600" : "text-emerald-600"}>
+            <span
+              className={
+                isSaving
+                  ? "text-amber-600 font-medium"
+                  : "text-emerald-600 font-medium"
+              }
+            >
               {isSaving ? (
                 "Đang đồng bộ với Rust..."
               ) : (
