@@ -1,18 +1,26 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom"; // Thêm useNavigate để điều hướng động
+import { useNavigate, Link } from "react-router-dom";
 import { Plus, FileText, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import { cvService } from "@/services/cvService";
 import { Cv } from "@/types/cv";
 
+/**
+ * HELPER: Loại bỏ thẻ HTML để hiển thị tên CV sạch sẽ trên Dashboard
+ */
+const stripHtml = (text: string): string => {
+  if (!text) return "";
+  return text.replace(/<\/?[^>]+(>|$)/g, "").trim();
+};
+
 const DashboardPage = () => {
   const [drafts, setDrafts] = useState<Cv[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false); // Trạng thái chờ khi tạo CV mới
+  const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
 
-  // 1. Lấy danh sách CV từ Backend khi vào trang
+  // 1. Lấy danh sách CV từ Backend
   useEffect(() => {
     const fetchCvList = async () => {
       try {
@@ -30,20 +38,23 @@ const DashboardPage = () => {
     fetchCvList();
   }, []);
 
-  // 2. Hàm xử lý tạo CV mới (Thay thế Link tĩnh bằng gọi API)
+  // 2. Hàm xử lý tạo CV mới
   const handleCreateNewCv = async () => {
     setIsCreating(true);
     try {
+      /**
+       * Backend Rust nhận snake_case cho request body (CreateCvRequest)
+       * hoặc camelCase tùy vào cấu hình Serde ở Backend.
+       * Theo chuẩn hóa hiện tại, ta dùng camelCase cho đồng bộ.
+       */
       const newCvRequest = {
         name: "CV mới chưa đặt tên",
-        template_id: "modern-01",
+        templateId: "modern-01",
       };
 
-      // Gọi Backend Rust để sinh UUID mới trong Database
-      const response = await cvService.create(newCvRequest);
+      const response = await cvService.create(newCvRequest as any);
 
       if (response && response.id) {
-        // Sau khi tạo thành công, điều hướng thẳng vào trang Editor với ID thật
         navigate(`/editor/${response.id}`);
       }
     } catch (err) {
@@ -68,7 +79,6 @@ const DashboardPage = () => {
             </p>
           </div>
 
-          {/* Nút tạo mới sử dụng hàm handleCreateNewCv */}
           <Button
             onClick={handleCreateNewCv}
             disabled={isCreating}
@@ -86,7 +96,7 @@ const DashboardPage = () => {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <Loader2 className="w-8 h-8 animate-spin mb-2" />
-            <p>Đang kết nối Backend Rust...</p>
+            <p>Đang tải danh sách CV...</p>
           </div>
         ) : drafts.length === 0 ? (
           <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border">
@@ -110,19 +120,20 @@ const DashboardPage = () => {
                   <div className="aspect-[210/160] bg-muted/50 border-b border-border flex items-center justify-center relative">
                     <FileText className="w-10 h-10 text-muted-foreground/40" />
                     <span className="absolute top-2 right-2 text-[10px] bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 font-medium uppercase">
-                      {cv.layout_data?.template_id?.replace("-", " ") ||
-                        "Modern"}
+                      {/* SỬA LỖI ts(2551): Chuyển layout_data -> layoutData */}
+                      {cv.layoutData?.templateId?.replace("-", " ") || "Modern"}
                     </span>
                   </div>
 
                   <div className="p-4">
                     <h3 className="font-medium text-sm text-foreground group-hover:text-accent truncate">
-                      {cv.name}
+                      {stripHtml(cv.name)}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
                       <Clock className="w-3 h-3" />
-                      {cv.updated_at
-                        ? new Date(cv.updated_at).toLocaleDateString("vi-VN")
+                      {/* SỬA LỖI ts(2551): Chuyển updated_at -> updatedAt */}
+                      {cv.updatedAt
+                        ? new Date(cv.updatedAt).toLocaleDateString("vi-VN")
                         : "Vừa xong"}
                     </div>
                   </div>

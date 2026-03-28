@@ -2,42 +2,63 @@ import { useEffect, useRef } from "react";
 import { useCvStore } from "../stores/useCvStore";
 
 /**
- * Hook tự động theo dõi sự thay đổi của CV Data và kích hoạt lưu.
- * @param delay Thời gian chờ (ms) sau khi ngừng gõ để bắt đầu lưu. Mặc định 2000ms.
+ * Hook tự động theo dõi sự thay đổi của CV Data và kích hoạt lưu (Auto-save).
+ * Đảm bảo khớp tuyệt đối với logic chuẩn hóa (Sanitization) trong useCvStore.ts.
+ * * @param delay Thời gian chờ (ms) sau khi ngừng thao tác. Mặc định 2000ms.
  */
 export const useAutoSave = (delay: number = 2000) => {
-  const { data, isDirty, saveChanges, currentCvId } = useCvStore();
-
-  // Sử dụng ref để giữ reference của timer, tránh việc re-render tạo nhiều timer
+  const { isDirty, saveChanges, currentCvId, isSaving, lastSaved } =
+    useCvStore();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Lưu tham chiếu đến hàm save để tránh useEffect chạy lại khi store re-render
+  const saveRef = useRef(saveChanges);
   useEffect(() => {
-    // Chỉ kích hoạt logic nếu dữ liệu đã bị thay đổi (isDirty) và có ID hợp lệ
-    if (isDirty && currentCvId) {
+    saveRef.current = saveChanges;
+  }, [saveChanges]);
 
-      // Xóa timer cũ nếu người dùng tiếp tục gõ/thay đổi
+  useEffect(() => {
+    // Chỉ chuẩn bị lưu nếu: Có thay đổi, có ID, và KHÔNG đang trong quá trình lưu
+    if (isDirty && currentCvId && !isSaving) {
+      // 1. Clear timer cũ khi người dùng tiếp tục thao tác
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
 
-      // Thiết lập timer mới
-      timerRef.current = setTimeout(() => {
-        console.log("useAutoSave: Đang tiến hành lưu tự động...");
-        saveChanges();
+      // 2. Thiết lập Debounce
+      timerRef.current = setTimeout(async () => {
+        // Kiểm tra lại một lần nữa trước khi gọi API
+        if (getLatestIsDirty()) {
+          console.log(
+            "💾 [AutoSave]: Khởi chạy tiến trình đồng bộ với Rust Backend...",
+          );
+          try {
+            await saveRef.current();
+          } catch (error) {
+            console.error("❌ [AutoSave] Failure:", error);
+          }
+        }
       }, delay);
     }
 
-    // Cleanup function: Chạy khi component unmount hoặc trước khi effect chạy lại
+    // Cleanup khi unmount hoặc khi dependency thay đổi
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [data, isDirty, currentCvId, saveChanges, delay]);
+    // Loại bỏ isSaving khỏi deps để tránh việc vừa lưu xong (isSaving: false)
+    // lại kích hoạt ngược lại useEffect này.
+  }, [isDirty, currentCvId, delay]);
+
+  // Hàm bổ trợ để check giá trị thực tế của store tại thời điểm timeout chạy
+  function getLatestIsDirty() {
+    return useCvStore.getState().isDirty;
+  }
 
   return {
-    isSaving: useCvStore((state) => state.isSaving),
-    lastSaved: useCvStore((state) => state.lastSaved),
+    isSaving,
+    lastSaved,
   };
 };
 

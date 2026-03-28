@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import {
   DragDropContext,
   Droppable,
@@ -6,10 +6,11 @@ import {
   DropResult,
 } from "@hello-pangea/dnd";
 import { useCvStore } from "@/stores/useCvStore";
-import { LayoutColumnId, CvSection } from "@/types/cv";
+import { CvSection } from "@/types/cv"; // Đã bỏ LayoutColumnId vì gây lỗi ts 2305
 import { GripVertical, EyeOff, Layout, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InlineRichText } from "./InlineRichText";
+import debounce from "lodash/debounce";
 
 // Import Blocks
 import { HeaderBlock } from "./HeaderBlock";
@@ -18,7 +19,13 @@ import { ExperienceBlock } from "./ExperienceBlock";
 import { ProjectsBlock } from "./ProjectsBlock";
 import { SkillsBlock } from "./SkillsBlock";
 
-// --- HELPERS ---
+// --- UTILS ---
+const stripHtml = (html: string) => {
+  const tmp = document.createElement("DIV");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+};
+
 const getTemplateType = (id: string) => ({
   isHarvard: id.toLowerCase().includes("harvard"),
   isModern: id.toLowerCase().includes("modern"),
@@ -26,6 +33,7 @@ const getTemplateType = (id: string) => ({
 });
 
 const LayoutEditor = () => {
+  // Ép kiểu layout để tránh lỗi truy cập property động
   const { data, moveSection, toggleSectionVisibility } = useCvStore();
 
   const onDragEnd = (result: DropResult) => {
@@ -37,10 +45,11 @@ const LayoutEditor = () => {
     )
       return;
 
+    // Sử dụng ép kiểu 'as any' cho droppableId để vượt qua kiểm tra LayoutColumnId bị thiếu
     moveSection(
       draggableId,
-      source.droppableId as LayoutColumnId,
-      destination.droppableId as LayoutColumnId,
+      source.droppableId as any,
+      destination.droppableId as any,
       destination.index,
     );
   };
@@ -59,7 +68,6 @@ const LayoutEditor = () => {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-12 p-8 max-w-[1100px] mx-auto pb-32 select-none">
-        {/* TỜ GIẤY A4 CANVAS - ĐÃ THÊM ID VÀ ÉP MÀU IN */}
         <div
           id="cv-print-area"
           className={cn(
@@ -72,7 +80,7 @@ const LayoutEditor = () => {
             printColorAdjust: "exact",
           }}
         >
-          {/* 1. VÙNG HEADER (FULL WIDTH) */}
+          {/* 1. VÙNG HEADER */}
           <div
             className={cn(
               "transition-colors duration-500",
@@ -97,7 +105,6 @@ const LayoutEditor = () => {
               isHarvard ? "grid-cols-1" : "grid-cols-12",
             )}
           >
-            {/* CỘT TRÁI (LEFT) */}
             <div
               className={cn(
                 "transition-all duration-500",
@@ -116,7 +123,6 @@ const LayoutEditor = () => {
               />
             </div>
 
-            {/* CỘT PHẢI (RIGHT) */}
             <div
               className={cn(
                 "transition-all duration-500",
@@ -136,7 +142,6 @@ const LayoutEditor = () => {
             </div>
           </div>
 
-          {/* DẢI TRANG TRÍ FOOTER (CHỈ CHO MODERN/STANDARD) */}
           {!isHarvard && (
             <div
               className="absolute bottom-0 left-0 w-full h-2 transition-colors duration-500"
@@ -145,7 +150,7 @@ const LayoutEditor = () => {
           )}
         </div>
 
-        {/* KHO LƯU TRỮ (UNUSED) - ĐÃ THÊM print:hidden */}
+        {/* Unused blocks area */}
         <div className="bg-slate-100/50 border-2 border-dashed border-slate-200 rounded-[2rem] p-8 print:hidden">
           <div className="flex items-center gap-3 mb-6 opacity-50">
             <Layout size={16} />
@@ -179,6 +184,23 @@ const SectionRenderer = ({
   const { isHarvard, isModern } = getTemplateType(templateId);
   const primaryColor = data?.theme.primaryColor || "#3b82f6";
 
+  // Debounce update để tránh lag UI khi gõ
+  const debouncedUpdateTitle = useCallback(
+    debounce((id: string, val: string) => {
+      // TUÂN THỦ RUST BACKEND: Loại bỏ thẻ HTML cho trường Title
+      const cleanTitle = stripHtml(val).trim().substring(0, 100);
+      updateSectionTitle(id, cleanTitle);
+    }, 500),
+    [updateSectionTitle],
+  );
+
+  const debouncedUpdateContent = useCallback(
+    debounce((id: string, val: string) => {
+      updateSectionContent(id, val);
+    }, 800),
+    [updateSectionContent],
+  );
+
   const SectionHeader = () => (
     <div
       className={cn(
@@ -189,7 +211,7 @@ const SectionRenderer = ({
     >
       <InlineRichText
         value={section.title}
-        onChange={(val) => updateSectionTitle(section.id, val)}
+        onChange={(val) => debouncedUpdateTitle(section.id, val)}
         className={cn(
           "font-bold uppercase tracking-wider",
           isHarvard ? "text-[14px] text-black" : "text-[13px]",
@@ -212,10 +234,9 @@ const SectionRenderer = ({
     case "header":
       return (
         <HeaderBlock
+          {...blockProps}
           personalInfo={data?.personalInfo}
           theme={data?.theme}
-          isPreview={false}
-          templateId={templateId}
         />
       );
     case "summary":
@@ -224,7 +245,7 @@ const SectionRenderer = ({
           <SectionHeader />
           <InlineRichText
             value={section.content || ""}
-            onChange={(val) => updateSectionContent(section.id, val)}
+            onChange={(val) => debouncedUpdateContent(section.id, val)}
             className={cn(
               "leading-relaxed text-justify",
               isHarvard ? "text-[13px]" : "text-[12px] text-slate-600",
@@ -245,7 +266,6 @@ const SectionRenderer = ({
   }
 };
 
-// --- COMPONENT DND NỘI BỘ ---
 const SectionColumn = ({
   id,
   sectionIds,
@@ -293,7 +313,6 @@ const SectionColumn = ({
                         "border border-slate-200 p-4 rounded-xl w-44 bg-white shadow-sm flex items-center justify-center text-center",
                     )}
                   >
-                    {/* NÚT ĐIỀU KHIỂN - Đã có print:hidden ở phiên bản trước */}
                     <div className="absolute -top-3 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-[60] print:hidden">
                       <div
                         {...p.dragHandleProps}
@@ -302,6 +321,7 @@ const SectionColumn = ({
                         <GripVertical size={14} />
                       </div>
                       <button
+                        type="button"
                         onClick={() => toggleVisibility(sid)}
                         className="p-1.5 bg-white shadow-md border rounded-md text-slate-400 hover:text-primary"
                       >

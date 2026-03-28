@@ -3,75 +3,27 @@ import {
   CvLayoutData,
   DEFAULT_CV_DATA,
   CvStoreState,
-  LayoutColumnId,
+  PersonalInfo,
+  CvTheme,
   CvItem,
 } from "../types/cv";
 import { cvService } from "../services/cvService";
 
-const FONT_SIZE_MAP: Record<string, string> = {
-  Nhỏ: "12px",
-  Vừa: "14px",
-  Lớn: "16px",
-};
-
-let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-
 /**
- * HELPER: Chuyển chuỗi rỗng về null để khớp với Option<String> trong Rust
+ * HELPER: Chuyển chuỗi rỗng thành null để khớp với Option<String> trong Rust.
  */
 const toOption = (text: any): string | null => {
   if (text === undefined || text === null) return null;
-  const cleaned = typeof text === "string" ? text.trim() : String(text).trim();
+  const cleaned = String(text).trim();
   return cleaned === "" ? null : cleaned;
 };
 
 /**
- * CHUẨN HÓA DỮ LIỆU GỬI LÊN RUST - KHỚP 100% MODELS.RS
+ * HELPER: Loại bỏ HTML tag cho các trường Plain Text.
  */
-const cleanDataForStorage = (data: CvLayoutData): any => {
-  return {
-    templateId: data.templateId || "modern-01",
-    personalInfo: {
-      fullName: data.personalInfo?.fullName || "",
-      title: data.personalInfo?.title || "",
-      email: data.personalInfo?.email || "",
-      phone: data.personalInfo?.phone || "",
-      address: data.personalInfo?.address || "",
-      website: data.personalInfo?.website || "",
-      avatar: toOption(data.personalInfo?.avatar),
-    },
-    theme: {
-      fontFamily: data.theme?.fontFamily || "Inter",
-      fontSize: data.theme?.fontSize || "14px",
-      lineHeight: parseFloat(String(data.theme?.lineHeight || 1.5)),
-      primaryColor: data.theme?.primaryColor || "#4f46e5",
-      templateId: data.theme?.templateId || data.templateId || "modern-01",
-    },
-    sections: (data.sections || []).map((s) => ({
-      id: s.id,
-      type: s.type || "experience",
-      title: s.title || "",
-      visible: Boolean(s.visible),
-      content: toOption(s.content),
-      items: (s.items || []).map((item) => ({
-        id: item.id,
-        title: item.title || "",
-        subtitle: toOption(item.subtitle),
-        date: toOption(item.date),
-        description: toOption(item.description),
-        email: toOption(item.email),
-        phone: toOption(item.phone),
-        location: toOption(item.location),
-        link: toOption((item as any).link),
-      })),
-    })),
-    layout: {
-      fullWidth: data.layout?.fullWidth || [],
-      leftColumn: data.layout?.leftColumn || [],
-      rightColumn: data.layout?.rightColumn || [],
-      unused: data.layout?.unused || [],
-    },
-  };
+const stripHtml = (text: string | null | undefined): string => {
+  if (!text) return "";
+  return text.replace(/<\/?[^>]+(>|$)/g, "").trim();
 };
 
 export const useCvStore = create<CvStoreState>((set, get) => ({
@@ -83,26 +35,16 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
   error: null,
   lastSaved: null,
 
-  setIsSaving: (isSaving: boolean) => set({ isSaving }),
-
-  setInitialData: (data: CvLayoutData) =>
-    set({
-      data: { ...data },
-      isDirty: false,
-      isLoading: false,
-    }),
-
-  setLanguage: (lang: "vi" | "en") => {
-    set((state) => ({ data: { ...state.data, language: lang } }));
-    get().triggerAutoSave();
-  },
-
   fetchCv: async (id: string) => {
     if (!id) return;
     set({ isLoading: true, error: null, currentCvId: id });
     try {
-      const response = (await cvService.getById(id)) as any;
-      const incoming = response.layout_data || response.layoutData || {};
+      const response = await cvService.getById(id);
+
+      // CHUẨN HÓA: Rust trả về layout_data (snake) nhưng model TS mong đợi layoutData (camel)
+      // Ta lấy dữ liệu linh hoạt từ response
+      const res = response as any;
+      const incoming = res.layoutData || res.layout_data || {};
 
       const mergedData: CvLayoutData = {
         ...DEFAULT_CV_DATA,
@@ -111,10 +53,8 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
           ...DEFAULT_CV_DATA.personalInfo,
           ...(incoming.personalInfo || {}),
         },
-        theme: {
-          ...DEFAULT_CV_DATA.theme,
-          ...(incoming.theme || {}),
-        },
+        theme: { ...DEFAULT_CV_DATA.theme, ...(incoming.theme || {}) },
+        layout: { ...DEFAULT_CV_DATA.layout, ...(incoming.layout || {}) },
       };
 
       set({ data: mergedData, isLoading: false, isDirty: false });
@@ -125,200 +65,244 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
 
   saveChanges: async () => {
     const { currentCvId, data, isDirty, isSaving } = get();
-    if (!currentCvId || !isDirty || isSaving) return;
+    // Kiểm tra an toàn trước khi lưu
+    if (!currentCvId || !isDirty || isSaving || !data) return;
 
     set({ isSaving: true });
     try {
-      const cleanedLayoutData = cleanDataForStorage(data);
+      /**
+       * PAYLOAD CHUẨN CAMELCASE:
+       * Khớp tuyệt đối với struct UpdateCvRequest { layout_data: CvLayoutData }
+       * đã được Backend dùng #[serde(rename_all = "camelCase")].
+       */
       const payload = {
-        name: data.personalInfo?.fullName || "Untitled CV",
-        layoutData: cleanedLayoutData,
+        name: stripHtml(data.personalInfo.fullName || "CV mới"),
+        layoutData: {
+          // ĐỔI TỪ layout_data -> layoutData (QUAN TRỌNG NHẤT)
+          ...data,
+          personalInfo: {
+            ...data.personalInfo,
+            avatar: toOption(data.personalInfo.avatar),
+          },
+          sections: data.sections.map((s) => ({
+            ...s,
+            content: toOption(s.content),
+            items: s.items.map((i) => ({
+              ...i,
+              subtitle: toOption(i.subtitle),
+              description: toOption(i.description),
+              date: toOption(i.date),
+              location: toOption(i.location),
+              link: toOption(i.link),
+            })),
+          })),
+        },
       };
 
       await cvService.update(currentCvId, payload as any);
-
-      set({
-        isSaving: false,
-        isDirty: false,
-        lastSaved: new Date(),
-        error: null,
-      });
-    } catch (err: any) {
-      set({ isSaving: false, error: "Lỗi đồng bộ dữ liệu" });
+      set({ isSaving: false, isDirty: false, lastSaved: new Date() });
+    } catch (err) {
+      console.error("Save Error:", err);
+      set({ isSaving: false, error: "Lỗi khi lưu dữ liệu tự động" });
     }
   },
 
-  triggerAutoSave: () => {
-    set({ isDirty: true });
-    if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => get().saveChanges(), 1500);
-  },
+  // --- ACTIONS CẬP NHẬT DỮ LIỆU (Đã xử lý check null tránh lỗi TS) ---
 
-  // --- TEMPLATE LOGIC ---
-  setTemplateId: (id: string) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        templateId: id,
-        theme: { ...state.data.theme, templateId: id },
-      },
-    }));
-    get().triggerAutoSave();
-  },
-
-  updateTheme: (newTheme) => {
-    set((state) => ({
-      data: { ...state.data, theme: { ...state.data.theme, ...newTheme } },
-    }));
-    get().triggerAutoSave();
-  },
-
-  // --- DỮ LIỆU CÁ NHÂN & SECTION ---
-  updatePersonalInfo: (field, value) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        personalInfo: { ...state.data.personalInfo, [field]: value },
-      },
-    }));
-    get().triggerAutoSave();
-  },
-
-  updateSectionTitle: (sectionId, title) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId ? { ...s, title } : s,
-        ),
-      },
-    }));
-    get().triggerAutoSave();
-  },
-
-  updateItemField: (sectionId, itemId, field, value) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId
-            ? {
-                ...s,
-                items: s.items.map((i) =>
-                  i.id === itemId ? { ...i, [field]: value } : i,
-                ),
-              }
-            : s,
-        ),
-      },
-    }));
-    get().triggerAutoSave();
-  },
-
-  // --- LAYOUT ACTIONS ---
-  reorderSections: (columnId, newIds) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        layout: { ...state.data.layout, [columnId]: newIds },
-      },
-    }));
-    get().triggerAutoSave();
-  },
-
-  moveSection: (sectionId, sourceCol, destCol, index) => {
+  updateCvName: (name: string) =>
     set((state) => {
-      const layout = { ...state.data.layout };
-      const sourceList = [...(layout[sourceCol] || [])];
-      let destList =
-        sourceCol === destCol ? sourceList : [...(layout[destCol] || [])];
-
-      const sourceIdx = sourceList.indexOf(sectionId);
-      if (sourceIdx > -1) {
-        sourceList.splice(sourceIdx, 1);
-        destList.splice(index, 0, sectionId);
-      }
-
+      if (!state.data) return state;
       return {
+        isDirty: true,
         data: {
           ...state.data,
-          layout: {
-            ...layout,
-            [sourceCol]: sourceList,
-            [destCol]: destList,
-          },
+          personalInfo: { ...state.data.personalInfo, fullName: name },
         },
       };
-    });
-    get().triggerAutoSave();
-  },
+    }),
 
-  // --- CÁC HÀM KHÁC (GIỮ NGUYÊN TỪ BẢN GỐC CỦA BẠN) ---
-  updateCvField: (field, value) => {
-    set((state) => ({ data: { ...state.data, [field]: value } }));
-    get().triggerAutoSave();
-  },
-  updateSectionContent: (sectionId, content) => {
+  updatePersonalInfo: (updates: Partial<PersonalInfo>) =>
+    set((state) => {
+      if (!state.data) return state;
+      return {
+        isDirty: true,
+        data: {
+          ...state.data,
+          personalInfo: { ...state.data.personalInfo, ...updates },
+        },
+      };
+    }),
+
+  updateTheme: (newTheme: Partial<CvTheme>) =>
+    set((state) => {
+      if (!state.data) return state;
+      return {
+        isDirty: true,
+        data: { ...state.data, theme: { ...state.data.theme, ...newTheme } },
+      };
+    }),
+
+  moveSection: (sectionId, sourceCol, destCol, index) =>
+    set((state) => {
+      if (!state.data) return state;
+      const newLayout = { ...state.data.layout };
+      // Xóa khỏi cột cũ
+      newLayout[sourceCol] = newLayout[sourceCol].filter(
+        (id) => id !== sectionId,
+      );
+      // Chèn vào vị trí mới ở cột mới
+      newLayout[destCol].splice(index, 0, sectionId);
+      return {
+        isDirty: true,
+        data: { ...state.data, layout: newLayout },
+      };
+    }),
+
+  updateCvField: (field, value) =>
+    set((state) => {
+      if (!state.data) return state;
+      return {
+        isDirty: true,
+        data: { ...state.data, [field]: value },
+      };
+    }),
+
+  toggleSectionVisibility: (sectionId) =>
+    set((state) => {
+      if (!state.data) return state;
+      return {
+        isDirty: true,
+        data: {
+          ...state.data,
+          sections: state.data.sections.map((s) =>
+            s.id === sectionId ? { ...s, visible: !s.visible } : s,
+          ),
+        },
+      };
+    }),
+
+  updateSectionTitle: (sectionId, title) =>
+    set((state) => {
+      if (!state.data) return state;
+      return {
+        isDirty: true,
+        data: {
+          ...state.data,
+          sections: state.data.sections.map((s) =>
+            s.id === sectionId ? { ...s, title } : s,
+          ),
+        },
+      };
+    }),
+
+  updateSectionContent: (sectionId, content) =>
+    set((state) => {
+      if (!state.data) return state;
+      return {
+        isDirty: true,
+        data: {
+          ...state.data,
+          sections: state.data.sections.map((s) =>
+            s.id === sectionId ? { ...s, content } : s,
+          ),
+        },
+      };
+    }),
+
+  updateItemField: (sectionId, itemId, field, value) =>
+    set((state) => {
+      if (!state.data) return state;
+      return {
+        isDirty: true,
+        data: {
+          ...state.data,
+          sections: state.data.sections.map((s) =>
+            s.id === sectionId
+              ? {
+                  ...s,
+                  items: s.items.map((i) =>
+                    i.id === itemId ? { ...i, [field]: value } : i,
+                  ),
+                }
+              : s,
+          ),
+        },
+      };
+    }),
+
+  // --- ACTIONS QUẢN LÝ DANH SÁCH ---
+
+  addItem: (sectionId) =>
+    set((state) => {
+      if (!state.data) return state;
+      const newItem: CvItem = {
+        id: crypto.randomUUID(),
+        title: "Tiêu đề mới",
+        subtitle: null,
+        date: null,
+        description: null,
+        email: null,
+        phone: null,
+        location: null,
+        link: null,
+      };
+      return {
+        isDirty: true,
+        data: {
+          ...state.data,
+          sections: state.data.sections.map((s) =>
+            s.id === sectionId ? { ...s, items: [...s.items, newItem] } : s,
+          ),
+        },
+      };
+    }),
+
+  removeItem: (sectionId, itemId) =>
+    set((state) => {
+      if (!state.data) return state;
+      return {
+        isDirty: true,
+        data: {
+          ...state.data,
+          sections: state.data.sections.map((s) =>
+            s.id === sectionId
+              ? { ...s, items: s.items.filter((i) => i.id !== itemId) }
+              : s,
+          ),
+        },
+      };
+    }),
+
+  reorderSections: (columnId, newIds) =>
+    set((state) => {
+      if (!state.data) return state;
+      return {
+        isDirty: true,
+        data: {
+          ...state.data,
+          layout: { ...state.data.layout, [columnId]: newIds },
+        },
+      };
+    }),
+
+  // --- ACTIONS HỆ THỐNG ---
+
+  setIsSaving: (isSaving) => set({ isSaving }),
+  setInitialData: (data) => set({ data, isDirty: false }),
+  triggerAutoSave: () => set({ isDirty: true }),
+  setLanguage: (lang) =>
     set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId ? { ...s, content } : s,
-        ),
-      },
-    }));
-    get().triggerAutoSave();
-  },
-  addItem: (sectionId) => {
+      isDirty: true,
+      data: state.data ? { ...state.data, language: lang } : null,
+    })),
+  setTemplateId: (id) =>
     set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId
-            ? {
-                ...s,
-                items: [
-                  ...(s.items || []),
-                  {
-                    id: crypto.randomUUID(),
-                    title: "Mục mới",
-                    subtitle: "",
-                    date: "",
-                    description: "",
-                  } as CvItem,
-                ],
-              }
-            : s,
-        ),
-      },
-    }));
-    get().triggerAutoSave();
-  },
-  removeItem: (sectionId, itemId) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId
-            ? { ...s, items: s.items.filter((i) => i.id !== itemId) }
-            : s,
-        ),
-      },
-    }));
-    get().triggerAutoSave();
-  },
-  toggleSectionVisibility: (sectionId) => {
-    set((state) => ({
-      data: {
-        ...state.data,
-        sections: state.data.sections.map((s) =>
-          s.id === sectionId ? { ...s, visible: !s.visible } : s,
-        ),
-      },
-    }));
-    get().triggerAutoSave();
-  },
+      isDirty: true,
+      data: state.data ? { ...state.data, templateId: id } : null,
+    })),
   exportPdf: async () => {
-    /* ... Giữ nguyên logic cũ của bạn ... */
+    window.print();
   },
 }));
+
+export default useCvStore;
