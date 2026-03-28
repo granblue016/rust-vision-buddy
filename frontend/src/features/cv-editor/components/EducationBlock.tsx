@@ -137,7 +137,7 @@ export const EducationBlock: React.FC<EducationBlockProps> = ({
                       ? "text-[13px] text-slate-700 leading-relaxed"
                       : "text-[12px] text-slate-500 italic"
                   }`}
-                  placeholder="GPA: 3.6/4.0 • Giải thưởng nghiên cứu khoa học..."
+                  placeholder=""
                 />
               </div>
             </div>
