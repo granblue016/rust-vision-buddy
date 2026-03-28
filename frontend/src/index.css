@@ -30,7 +30,7 @@
         --success: 160 60% 42%;
         --success-foreground: 0 0% 100%;
 
-        /* Màu sắc theo mức điểm (Dành cho vòng tròn 40/100) */
+        /* Màu sắc theo mức điểm */
         --score-high: 160 60% 42%;
         --score-mid: 40 90% 55%;
         --score-low: 0 70% 55%;
@@ -46,7 +46,7 @@
         --ring: 220 60% 20%;
         --radius: 0.75rem;
 
-        /* Gradients (Đã fix cho Hero Section) */
+        /* Gradients */
         --gradient-hero: linear-gradient(
             135deg,
             hsl(220 60% 20%),
@@ -92,8 +92,6 @@
         --border: 230 20% 18%;
         --input: 230 20% 18%;
         --ring: 210 60% 70%;
-
-        /* Giảm độ chói gradient trong dark mode */
         --gradient-hero: linear-gradient(
             135deg,
             hsl(230 25% 10%),
@@ -122,18 +120,13 @@
 }
 
 @layer components {
-    /* Layout container */
     .section-container {
         @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
     }
-
-    /* Hiệu ứng kính cho Navbar & Card */
     .glass-card {
         background-color: hsl(var(--card) / 0.8);
         @apply backdrop-blur-md border border-border/50 shadow-card;
     }
-
-    /* Các loại Gradient */
     .gradient-hero {
         background: var(--gradient-hero);
     }
@@ -143,8 +136,6 @@
     .gradient-cta {
         background: var(--gradient-cta);
     }
-
-    /* Các loại Shadow */
     .shadow-card {
         box-shadow: var(--shadow-card);
     }
@@ -154,14 +145,11 @@
     .shadow-cta {
         box-shadow: var(--shadow-cta);
     }
-
-    /* Hiệu ứng Hover cho nút Phân tích */
     .btn-cta {
         @apply gradient-cta text-white font-semibold shadow-cta transition-all duration-200 hover:scale-[1.02] active:scale-[0.98];
     }
 }
 
-/* Tiện ích nhanh cho điểm số (Dùng trong component điểm số) */
 @layer utilities {
     .text-score-low {
         color: hsl(var(--score-low));
@@ -171,5 +159,52 @@
     }
     .text-score-high {
         color: hsl(var(--score-high));
+    }
+}
+
+/* --- CẤU HÌNH IN ẤN (PDF EXPORT) --- */
+@media print {
+    /* 1. Xóa lề mặc định của trình duyệt để A4 tràn viền đẹp */
+    @page {
+        size: A4;
+        margin: 0mm !important;
+    }
+
+    /* 2. Giấu tất cả các thành phần UI (Toolbar, Sidebar, Buttons) */
+    body * {
+        visibility: hidden;
+    }
+
+    /* 3. Chỉ hiển thị vùng CV */
+    #cv-print-area,
+    #cv-print-area * {
+        visibility: visible;
+    }
+
+    /* 4. Định vị vùng CV lên góc trên cùng bên trái của tờ giấy */
+    #cv-print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 210mm !important;
+        height: 297mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        visibility: visible;
+    }
+
+    /* 5. Ép trình duyệt giữ nguyên màu nền và hình ảnh */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
+    /* 6. Loại bỏ các hiệu ứng hover/transition khi in */
+    .transition-all,
+    .transition-colors {
+        transition: none !important;
     }
 }

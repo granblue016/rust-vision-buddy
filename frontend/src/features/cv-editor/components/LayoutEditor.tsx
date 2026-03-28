@@ -59,13 +59,18 @@ const LayoutEditor = () => {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="space-y-12 p-8 max-w-[1100px] mx-auto pb-32 select-none">
-        {/* TỜ GIẤY A4 CANVAS */}
+        {/* TỜ GIẤY A4 CANVAS - ĐÃ THÊM ID VÀ ÉP MÀU IN */}
         <div
+          id="cv-print-area"
           className={cn(
-            "bg-white border border-slate-200 shadow-2xl min-h-[297mm] relative transition-all duration-500 overflow-hidden mx-auto print:shadow-none",
+            "bg-white border border-slate-200 shadow-2xl min-h-[297mm] relative transition-all duration-500 overflow-hidden mx-auto print:shadow-none print:border-none print:m-0",
             isHarvard ? "font-serif" : "font-sans",
           )}
-          style={{ width: "210mm" }}
+          style={{
+            width: "210mm",
+            WebkitPrintColorAdjust: "exact",
+            printColorAdjust: "exact",
+          }}
         >
           {/* 1. VÙNG HEADER (FULL WIDTH) */}
           <div
@@ -140,8 +145,8 @@ const LayoutEditor = () => {
           )}
         </div>
 
-        {/* KHO LƯU TRỮ (UNUSED) */}
-        <div className="bg-slate-100/50 border-2 border-dashed border-slate-200 rounded-[2rem] p-8">
+        {/* KHO LƯU TRỮ (UNUSED) - ĐÃ THÊM print:hidden */}
+        <div className="bg-slate-100/50 border-2 border-dashed border-slate-200 rounded-[2rem] p-8 print:hidden">
           <div className="flex items-center gap-3 mb-6 opacity-50">
             <Layout size={16} />
             <h3 className="text-xs font-bold uppercase tracking-[0.2em]">
@@ -288,7 +293,7 @@ const SectionColumn = ({
                         "border border-slate-200 p-4 rounded-xl w-44 bg-white shadow-sm flex items-center justify-center text-center",
                     )}
                   >
-                    {/* NÚT ĐIỀU KHIỂN */}
+                    {/* NÚT ĐIỀU KHIỂN - Đã có print:hidden ở phiên bản trước */}
                     <div className="absolute -top-3 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-[60] print:hidden">
                       <div
                         {...p.dragHandleProps}

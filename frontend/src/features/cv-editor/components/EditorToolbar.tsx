@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Save,
   Loader2,
@@ -8,7 +8,7 @@ import {
   Baseline,
   Printer,
   Globe,
-  LayoutTemplate, // Thêm icon cho Template
+  LayoutTemplate,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,6 @@ const FONTS = [
   },
 ];
 
-// Định nghĩa danh sách các mẫu CV
 const TEMPLATES = [
   { id: "standard-01", label: { vi: "Mẫu Tiêu chuẩn", en: "Standard" } },
   { id: "harvard-01", label: { vi: "Mẫu Harvard", en: "Harvard" } },
@@ -45,7 +44,8 @@ const EditorToolbar = ({
   onSave: () => Promise<void>;
   isSaving: boolean;
 }) => {
-  const { data, updateTheme, exportPdf, setLanguage } = useCvStore();
+  const { data, updateTheme, setLanguage } = useCvStore();
+  const [isPrinting, setIsPrinting] = useState(false); // Thêm state xử lý in
 
   if (!data) return null;
 
@@ -70,8 +70,18 @@ const EditorToolbar = ({
     },
   ];
 
+  // --- HÀM XỬ LÝ XUẤT PDF TRỰC TIẾP ---
+  const handleExportPdf = () => {
+    setIsPrinting(true);
+    // Đợi 1 chút để UI cập nhật (nếu cần giấu/hiện elements trước khi in)
+    setTimeout(() => {
+      window.print();
+      setIsPrinting(false);
+    }, 500);
+  };
+
   return (
-    <header className="h-14 shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center px-6 gap-4 sticky top-0 z-[100] shadow-sm">
+    <header className="h-14 shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center px-6 gap-4 sticky top-0 z-[100] shadow-sm print:hidden">
       {/* Nút quay lại */}
       <Link
         to="/dashboard"
@@ -83,7 +93,7 @@ const EditorToolbar = ({
 
       <div className="w-px h-6 bg-slate-200 shrink-0" />
 
-      {/* CHỌN TEMPLATE (Mới thêm) */}
+      {/* CHỌN TEMPLATE */}
       <div className="flex items-center gap-2 ml-2 shrink-0">
         <LayoutTemplate className="w-3.5 h-3.5 text-indigo-500" />
         <select
@@ -161,26 +171,27 @@ const EditorToolbar = ({
           </span>
         )}
 
+        {/* Đã sửa onClick thành handleExportPdf */}
         <Button
-          onClick={exportPdf}
-          disabled={isSaving}
+          onClick={handleExportPdf}
+          disabled={isSaving || isPrinting}
           variant="outline"
           size="sm"
           className="gap-2 h-9 px-4 font-black border-slate-200 hover:bg-slate-50 active:scale-95 transition-all"
         >
-          {isSaving ? (
+          {isPrinting ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
           ) : (
             <Printer className="w-3.5 h-3.5 text-slate-500" />
           )}
           <span className="text-xs uppercase hidden sm:inline">
-            {isSaving ? t.common.syncing : t.common.export_pdf}
+            {isPrinting ? "ĐANG TẠO PDF..." : t.common.export_pdf}
           </span>
         </Button>
 
         <Button
           onClick={onSave}
-          disabled={isSaving}
+          disabled={isSaving || isPrinting}
           size="sm"
           className={cn(
             "gap-2 h-9 px-4 font-black transition-all active:scale-95 shadow-md shadow-indigo-200/50",
