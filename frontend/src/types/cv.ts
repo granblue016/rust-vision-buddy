@@ -11,6 +11,9 @@ export interface PersonalInfo {
   avatar: string | null;
 }
 
+/**
+ * Cấu hình giao diện (Theme)
+ */
 export interface CvTheme {
   fontFamily: string;
   fontSize: string;
@@ -19,6 +22,9 @@ export interface CvTheme {
   templateId: string;
 }
 
+/**
+ * Item chi tiết trong một Section (Ví dụ: Một công việc trong Kinh nghiệm)
+ */
 export interface CvItem {
   id: string;
   title: string;
@@ -31,6 +37,9 @@ export interface CvItem {
   link: string | null;
 }
 
+/**
+ * Định nghĩa một Section (Kinh nghiệm, Học vấn, Kỹ năng...)
+ */
 export interface CvSection {
   id: string;
   type: string;
@@ -40,13 +49,32 @@ export interface CvSection {
   items: CvItem[];
 }
 
+/**
+ * Quản lý Layout - Chìa khóa giải quyết lỗi TS
+ */
+// 1. Định nghĩa tập hợp các ID cột hợp lệ
+export type LayoutColumnId =
+  | "fullWidth"
+  | "leftColumn"
+  | "rightColumn"
+  | "unused";
+
+// 2. Thêm Index Signature [key: string] để cho phép truy cập layout[key] an toàn
 export interface CvLayoutState {
   fullWidth: string[];
   leftColumn: string[];
   rightColumn: string[];
   unused: string[];
+  /**
+   * Index Signature: Cho phép truy cập động bằng string.
+   * Giải quyết lỗi: "Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'CvLayoutState'"
+   */
+  [key: string]: string[];
 }
 
+/**
+ * Cấu trúc dữ liệu chính của CV
+ */
 export interface CvLayoutData {
   templateId: string;
   personalInfo: PersonalInfo;
@@ -56,6 +84,9 @@ export interface CvLayoutData {
   language?: "vi" | "en";
 }
 
+/**
+ * Đối tượng CV đầy đủ từ DB
+ */
 export interface Cv {
   id: string;
   userId: string;
@@ -67,11 +98,10 @@ export interface Cv {
 
 /**
  * Định nghĩa Zustand Store State & Actions
- * Đã bổ sung các trường và action bị thiếu trong ảnh lỗi của bạn
  */
 export interface CvStoreState {
   currentCvId: string | null;
-  name: string; // Sửa lỗi ts(2353) và ts(2339)
+  name: string;
   data: CvLayoutData | null;
   isSaving: boolean;
   isLoading: boolean;
@@ -87,24 +117,24 @@ export interface CvStoreState {
   triggerAutoSave: () => void;
   exportPdf: () => Promise<void>;
 
-  // Actions cập nhật dữ liệu (Quan trọng)
+  // Actions cập nhật dữ liệu
   updateCvName: (newName: string) => void;
   setLanguage: (lang: "vi" | "en") => void;
   updateTheme: (newTheme: Partial<CvTheme>) => void;
   updatePersonalInfo: (updates: Partial<PersonalInfo>) => void;
 
-  // Sửa lỗi ts(7006) trong useCvStore.ts
+  // Cập nhật field bất kỳ trong CvLayoutData
   updateCvField: <K extends keyof CvLayoutData>(
     field: K,
     value: CvLayoutData[K],
   ) => void;
 
-  // DnD & Layout
-  reorderSections: (columnId: keyof CvLayoutState, newIds: string[]) => void;
+  // DnD & Layout (Sử dụng LayoutColumnId thay vì string chung chung)
+  reorderSections: (columnId: LayoutColumnId, newIds: string[]) => void;
   moveSection: (
     sectionId: string,
-    sourceCol: keyof CvLayoutState,
-    destCol: keyof CvLayoutState,
+    sourceCol: LayoutColumnId,
+    destCol: LayoutColumnId,
     index: number,
   ) => void;
 
@@ -122,6 +152,9 @@ export interface CvStoreState {
   removeItem: (sectionId: string, itemId: string) => void;
 }
 
+/**
+ * Dữ liệu mặc định cho CV mới
+ */
 export const DEFAULT_CV_DATA: CvLayoutData = {
   templateId: "standard-01",
   personalInfo: {
@@ -140,6 +173,11 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
     lineHeight: 1.5,
     primaryColor: "#4f46e5",
   },
-  layout: { fullWidth: [], leftColumn: [], rightColumn: [], unused: [] },
+  layout: {
+    fullWidth: [],
+    leftColumn: [],
+    rightColumn: [],
+    unused: [],
+  },
   sections: [],
 };

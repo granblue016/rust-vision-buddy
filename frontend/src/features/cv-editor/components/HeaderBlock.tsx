@@ -1,6 +1,6 @@
 import React from "react";
 import { Mail, Phone, MapPin, Globe } from "lucide-react";
-import { InlineRichText } from "./InlineRichText"; // Chỉnh lại import nếu cần
+import { InlineRichText } from "./InlineRichText";
 import { useCvStore } from "../../../stores/useCvStore";
 import { PersonalInfo, CvTheme } from "../../../types/cv";
 
@@ -31,10 +31,12 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
   const storeData = useCvStore((state) => state.data);
   const updatePersonalInfo = useCvStore((state) => state.updatePersonalInfo);
 
-  const info = isPreview ? propsInfo : storeData.personalInfo;
-  const theme = isPreview ? propsTheme : storeData.theme;
+  // VẤN ĐỀ 1 ĐÃ SỬA: Thêm Optional Chaining (?.) để tránh crash khi storeData bị null
+  const info = isPreview ? propsInfo : storeData?.personalInfo;
+  const theme = isPreview ? propsTheme : storeData?.theme;
   const primaryColor = propsColor || theme?.primaryColor || "#000000";
 
+  // Nếu chưa có dữ liệu info (đang tải), không render gì cả để tránh lỗi
   if (!info) return null;
 
   const isHarvard = templateId.toLowerCase().includes("harvard");
@@ -48,7 +50,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
           : "space-y-3 pb-8 border-b-2 border-slate-100 mb-8 font-sans"
       }`}
     >
-      {/* 1. HỌ TÊN - Xử lý chống tràn (Break word) */}
+      {/* 1. HỌ TÊN */}
       <div className="w-full px-8 max-w-5xl mx-auto overflow-hidden">
         {isPreview ? (
           <h1
@@ -63,7 +65,8 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
         ) : (
           <InlineRichText
             value={info.fullName || ""}
-            onChange={(val: string) => updatePersonalInfo("fullName", val)}
+            // VẤN ĐỀ 2 ĐÃ SỬA: Truyền tham số dạng Object để khớp với chuẩn Zustand
+            onChange={(val: string) => updatePersonalInfo({ fullName: val })}
             className={`uppercase break-words leading-[1.1] outline-none w-full text-center ${
               isHarvard
                 ? "text-3xl font-bold text-black"
@@ -74,13 +77,13 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
         )}
       </div>
 
-      {/* 2. VỊ TRÍ ỨNG TUYỂN - Mẫu Harvard thường bỏ qua hoặc viết rất nhỏ */}
+      {/* 2. VỊ TRÍ ỨNG TUYỂN */}
       {!isHarvard && (
         <div className="w-full px-4 overflow-hidden">
           <div style={{ color: primaryColor }}>
             <InlineRichText
               value={info.title || ""}
-              onChange={(val: string) => updatePersonalInfo("title", val)}
+              onChange={(val: string) => updatePersonalInfo({ title: val })}
               className="text-lg font-bold uppercase tracking-[0.2em] outline-none w-full text-center break-words"
               placeholder="VỊ TRÍ ỨNG TUYỂN"
             />
@@ -88,7 +91,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
         </div>
       )}
 
-      {/* 3. THÔNG TIN LIÊN HỆ - Dùng Flexbox thông minh */}
+      {/* 3. THÔNG TIN LIÊN HỆ */}
       <div
         className={`flex flex-wrap justify-center items-center mt-2 w-full px-4 max-w-4xl mx-auto ${
           isHarvard
@@ -102,7 +105,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
           }
           value={info.phone}
           placeholder="Số điện thoại"
-          onChange={(val) => updatePersonalInfo("phone", val)}
+          onChange={(val) => updatePersonalInfo({ phone: val })}
           isPreview={isPreview}
           isHarvard={isHarvard}
         />
@@ -115,7 +118,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
           }
           value={info.email}
           placeholder="Email"
-          onChange={(val) => updatePersonalInfo("email", val)}
+          onChange={(val) => updatePersonalInfo({ email: val })}
           isPreview={isPreview}
           isHarvard={isHarvard}
         />
@@ -128,7 +131,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
           }
           value={info.address}
           placeholder="Địa chỉ"
-          onChange={(val) => updatePersonalInfo("address", val)}
+          onChange={(val) => updatePersonalInfo({ address: val })}
           isPreview={isPreview}
           isHarvard={isHarvard}
         />
@@ -144,7 +147,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
               }
               value={info.website}
               placeholder="LinkedIn/Portfolio"
-              onChange={(val) => updatePersonalInfo("website", val)}
+              onChange={(val) => updatePersonalInfo({ website: val })}
               isPreview={isPreview}
               isHarvard={isHarvard}
             />
@@ -155,7 +158,6 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
   );
 };
 
-// Component con cho dấu gạch đứng (chỉ hiện ở Harvard)
 const Separator = ({ isHarvard }: { isHarvard: boolean }) =>
   isHarvard ? <span className="text-slate-400 select-none">|</span> : null;
 

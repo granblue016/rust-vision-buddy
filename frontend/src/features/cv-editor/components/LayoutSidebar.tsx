@@ -62,7 +62,10 @@ const LayoutSidebar = () => {
     const destCol = destination.droppableId as LayoutColumnId;
 
     if (sourceCol === destCol) {
-      const currentIds = Array.from(data.layout[sourceCol]);
+      // FIX: Ép kiểu data.layout về dạng Record<string, string[]> để TS biết chắc chắn kết quả trả về là một mảng chuỗi
+      const layoutRecord = data.layout as Record<string, string[]>;
+      const currentIds = Array.from(layoutRecord[sourceCol]);
+
       const [removed] = currentIds.splice(source.index, 1);
       currentIds.splice(destination.index, 0, removed);
       reorderSections(sourceCol, currentIds);
@@ -76,7 +79,9 @@ const LayoutSidebar = () => {
     label: string,
     isUnused = false,
   ) => {
-    const sectionIds = data.layout[columnId] || [];
+    // FIX: Tương tự, ép kiểu an toàn khi truy cập object bằng key động (dynamic key)
+    const layoutRecord = data.layout as Record<string, string[]>;
+    const sectionIds: string[] = layoutRecord[columnId as string] || [];
 
     return (
       <div
@@ -110,7 +115,8 @@ const LayoutSidebar = () => {
                   "bg-indigo-50/50 border-dashed border-indigo-200 shadow-inner",
               )}
             >
-              {sectionIds.map((id, index) => {
+              {/* FIX: Khai báo rõ kiểu dữ liệu (id: string, index: number) để sửa lỗi ts(7006) */}
+              {sectionIds.map((id: string, index: number) => {
                 const section = data.sections.find((s) => s.id === id);
                 if (!section) return null;
 
