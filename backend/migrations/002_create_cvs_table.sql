@@ -36,14 +36,17 @@ CREATE TABLE IF NOT EXISTS cvs (
         "sections": []
     }',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- Ràng buộc: Xóa user thì tự động xóa CV liên quan
+    CONSTRAINT fk_cvs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- 4. Chèn dữ liệu mẫu chuẩn hóa hoàn toàn theo Rust Structs
 INSERT INTO cvs (id, user_id, name, layout_data)
 VALUES (
     'ad1f7480-38b8-421b-bf3b-a0db13b9fa9e',
-    '00000000-0000-0000-0000-000000000000',
+    (SELECT id FROM users LIMIT 1), -- Lấy tự động ID của user đầu tiên để tránh lỗi FK
     'CV Mẫu Hệ Thống 2.1',
     '{
         "templateId": "modern-01",
