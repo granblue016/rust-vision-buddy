@@ -1,19 +1,47 @@
 use crate::{
-    shared::{api_error::ApiError, app_state::AppState},
+    shared::api_error::ApiError,
+    shared::app_state::AppState,
     modules::auth::{jwt, models::{User, AuthProvider}},
 };
 use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
+use async_trait::async_trait;
+use uuid::Uuid;
 
+#[cfg(test)]
+use mockall::automock;
+
+// --- 1. REPOSITORY TRAIT ---
+#[async_trait]
+#[cfg_attr(test, automock)]
+pub trait AuthRepository: Send + Sync {
+    async fn find_by_email(&self, email: &str) -> Result<Option<User>, ApiError>;
+    async fn find_by_provider(&self, provider: AuthProvider, provider_id: &str) -> Result<Option<User>, ApiError>;
+    async fn update_password_hash(&self, user_id: Uuid, new_hash: &str) -> Result<(), ApiError>;
+    async fn create_email_user(&self, email: &str, hash: &str) -> Result<User, ApiError>;
+    async fn create_oauth_user(
+        &self,
+        email: &str,
+        name: Option<&str>,
+        avatar: Option<&str>,
+        provider: AuthProvider,
+        provider_id: &str
+    ) -> Result<User, ApiError>;
+}
+
+// --- 2. PASSWORD HELPERS ---
 fn hash_password(password: &str) -> Result<String, ApiError> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     argon2
         .hash_password(password.as_bytes(), &salt)
         .map(|hash| hash.to_string())
-        .map_err(|_| ApiError::Internal)
+        .map_err(|e| {
+            tracing::error!("Hash password error: {:?}", e);
+            ApiError::Internal
+        })
 }
 
 fn verify_password(stored_password: &str, provided_password: &str) -> Result<bool, ApiError> {
@@ -23,170 +51,138 @@ fn verify_password(stored_password: &str, provided_password: &str) -> Result<boo
             .verify_password(provided_password.as_bytes(), &parsed_hash)
             .is_ok());
     }
-
-    // Backward-compatible fallback for legacy plain-text rows.
+    // Hỗ trợ so sánh plaintext nếu chưa nâng cấp lên Argon2
     Ok(stored_password == provided_password)
 }
 
-pub async fn validate_credentials(email: &str, password: &str, state: &AppState) -> Result<(), ApiError> {
-    let user = sqlx::query_as!(
-        User,
-        r#"
-        SELECT id, email, name, avatar_url, 
-               provider as "provider: AuthProvider", 
-               provider_id, password_hash, created_at, updated_at
-        FROM users 
-        WHERE email = $1 AND provider = 'email'
-        "#,
-        email
-    )
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|_| ApiError::Internal)?
-    .ok_or(ApiError::Unauthorized)?;
+// --- 3. SERVICE LOGIC ---
 
-    let stored_password = user.password_hash.ok_or(ApiError::Unauthorized)?;
+pub async fn validate_credentials<R: AuthRepository + ?Sized>(
+    email: &str,
+    password: &str,
+    repo: &R
+) -> Result<User, ApiError> {
+    let user = repo.find_by_email(email).await?
+        .ok_or(ApiError::Unauthorized)?;
 
-    if verify_password(&stored_password, password)? {
-        // One-time migration path: upgrade legacy plain-text password to Argon2.
+    let stored_password = user.password_hash.as_deref().ok_or(ApiError::Unauthorized)?;
+
+    if verify_password(stored_password, password)? {
+        // Nâng cấp hash nếu user vẫn dùng plaintext (Argon2 migration)
         if !stored_password.starts_with("$argon2") {
-            let upgraded_hash = hash_password(password)?;
-            if let Err(err) = sqlx::query!(
-                "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2",
-                upgraded_hash,
-                user.id
-            )
-            .execute(&state.db)
-            .await
-            {
-                tracing::warn!("Failed to upgrade legacy password hash for {}: {}", email, err);
+            if let Ok(upgraded_hash) = hash_password(password) {
+                let _ = repo.update_password_hash(user.id, &upgraded_hash).await;
             }
         }
-        return Ok(());
+        return Ok(user);
     }
 
     Err(ApiError::Unauthorized)
 }
 
-pub async fn register(email: &str, password: &str, state: &AppState) -> Result<(), ApiError> {
+pub async fn register<R: AuthRepository + ?Sized>(
+    email: &str,
+    password: &str,
+    repo: &R
+) -> Result<User, ApiError> {
     let normalized_email = email.trim().to_lowercase();
+
     if normalized_email.len() < 5 || !normalized_email.contains('@') {
-        return Err(ApiError::BadRequest("Invalid email format".to_string()));
+        return Err(ApiError::BadRequest("Invalid email format".into()));
     }
 
     if password.len() < 6 {
-        return Err(ApiError::BadRequest("Password must be at least 6 characters".to_string()));
-    }
-
-    // Check if user already exists
-    let existing = sqlx::query!(
-        "SELECT id FROM users WHERE email = $1",
-        normalized_email
-    )
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|_| ApiError::Internal)?;
-
-    if existing.is_some() {
-        return Err(ApiError::BadRequest("Email already exists".to_string()));
+        return Err(ApiError::BadRequest("Password must be at least 6 characters".into()));
     }
 
     let password_hash = hash_password(password)?;
+    repo.create_email_user(&normalized_email, &password_hash).await
+}
 
-    // Insert new user
-    sqlx::query!(
-        r#"
-        INSERT INTO users (email, password_hash, provider)
-        VALUES ($1, $2, 'email')
-        "#,
-        normalized_email,
-        password_hash
-    )
-    .execute(&state.db)
-    .await
-    .map_err(|_| ApiError::Internal)?;
+pub async fn find_or_create_oauth_user<R: AuthRepository + ?Sized>(
+    email: &str,
+    name: Option<&str>,
+    avatar_url: Option<&str>,
+    provider_id: &str,
+    provider: AuthProvider,
+    repo: &R,
+) -> Result<User, ApiError> {
+    // 1. Tìm chính xác theo provider + id
+    if let Some(user) = repo.find_by_provider(provider.clone(), provider_id).await? {
+        return Ok(user);
+    }
 
-    Ok(())
+    // 2. Account linking: Tìm theo email (nếu email đã tồn tại thì liên kết luôn)
+    if let Some(user) = repo.find_by_email(email).await? {
+        return Ok(user);
+    }
+
+    // 3. Không có thì tạo mới
+    repo.create_oauth_user(email, name, avatar_url, provider, provider_id).await
 }
 
 pub fn login(email: &str, state: &AppState) -> Result<String, ApiError> {
     jwt::generate_access_token(email, state)
 }
 
-pub fn validate_bearer_token(raw_token: &str, state: &AppState) -> Result<(), ApiError> {
-    jwt::validate_token(raw_token, state).map(|_| ())
+pub fn validate_bearer_token(raw_token: &str, state: &AppState) -> Result<String, ApiError> {
+    // FIX: jwt::validate_token trả về Result<Claims>, ta cần lấy field .sub (email)
+    let claims = jwt::validate_token(raw_token, state)?;
+    Ok(claims.sub)
 }
 
-pub async fn find_or_create_oauth_user(
-    email: &str,
-    name: Option<&str>,
-    avatar_url: Option<&str>,
-    provider_id: &str,
-    provider: AuthProvider,
-    state: &AppState,
-) -> Result<User, ApiError> {
-    if let Some(user) = sqlx::query_as!(
-        User,
-        r#"
-        SELECT id, email, name, avatar_url, 
-               provider as "provider: AuthProvider", 
-               provider_id, password_hash, created_at, updated_at
-        FROM users 
-        WHERE provider = $1 AND provider_id = $2
-        "#,
-        provider as AuthProvider,
-        provider_id
-    )
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|_| ApiError::Internal)?
-    {
-        return Ok(user);
+// --- 4. UNIT TESTS ---
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    fn mock_user(email: &str) -> User {
+        User {
+            id: Uuid::new_v4(),
+            email: email.to_string(),
+            name: None,
+            avatar_url: None,
+            provider: AuthProvider::Email,
+            provider_id: None,
+            password_hash: Some("$argon2...".to_string()),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
     }
 
-    // Try to find by email (for account linking)
-    if let Some(user) = sqlx::query_as!(
-        User,
-        r#"
-        SELECT id, email, name, avatar_url, 
-               provider as "provider: AuthProvider", 
-               provider_id, password_hash, created_at, updated_at
-        FROM users 
-        WHERE email = $1
-        "#,
-        email
-    )
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|_| ApiError::Internal)?
-    {
-        // Email exists but different provider → return existing user
-        // In a more sophisticated system, we might want to link the accounts
-        return Ok(user);
+    #[tokio::test]
+    async fn test_register_email_already_exists() {
+        let mut mock_repo = MockAuthRepository::new();
+
+        mock_repo.expect_create_email_user()
+            .returning(|_email, _pass| {
+                Box::pin(async move {
+                    Err(ApiError::BadRequest("Email already exists".to_string()))
+                })
+            });
+
+        let result = register("existing@test.com", "password123", &mock_repo).await;
+        assert!(result.is_err());
     }
 
-    // Create new user
-    let user = sqlx::query_as!(
-        User,
-        r#"
-        INSERT INTO users (email, name, avatar_url, provider, provider_id)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, email, name, avatar_url, 
-                  provider as "provider: AuthProvider", 
-                  provider_id, password_hash, created_at, updated_at
-        "#,
-        email,
-        name,
-        avatar_url,
-        provider as AuthProvider,
-        provider_id
-    )
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to create OAuth user: {}", e);
-        ApiError::Internal
-    })?;
+    #[tokio::test]
+    async fn test_validate_credentials_success() {
+        let mut mock_repo = MockAuthRepository::new();
+        let email = "test@example.com";
+        let password = "password123";
+        let hash = hash_password(password).unwrap();
 
-    Ok(user)
+        let mut user = mock_user(email);
+        user.password_hash = Some(hash);
+
+        mock_repo.expect_find_by_email()
+            .returning(move |_| {
+                let u = user.clone();
+                Box::pin(async move { Ok(Some(u)) })
+            });
+
+        let result = validate_credentials(email, password, &mock_repo).await;
+        assert!(result.is_ok());
+    }
 }

@@ -40,6 +40,7 @@ url = "2.5"
 base64 = "0.22"
 urlencoding = "2.1"
 headless_chrome = "1.0.21"
+async-trait = "0.1.89"
 
 [dev-dependencies]
 # Công cụ hỗ trợ Testing
@@ -48,3 +49,4 @@ mime = "0.3"
 http-body-util = "0.1"
 # Macros dành riêng cho việc chạy #[tokio::test]
 tokio = { version = "1", features = ["full", "macros"] }
+mockall = "0.13"

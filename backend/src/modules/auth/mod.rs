@@ -1,5 +1,4 @@
 use axum::{routing::{get, post}, Router};
-
 use crate::shared::app_state::AppState;
 
 pub fn routes() -> Router<AppState> {
@@ -16,6 +15,7 @@ pub fn routes() -> Router<AppState> {
 
 mod handlers;
 mod jwt;
-mod models;
+pub mod models;
 pub mod service;
+pub mod repository; // ĐÃ THÊM: Khai báo để Handler và AppState có thể sử dụng SqlxAuthRepository
 mod oauth;

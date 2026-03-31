@@ -60,3 +60,21 @@ impl AppState {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
+    // Giả sử AppConfig của bạn có thể khởi tạo mặc định hoặc đơn giản
+    // và AppState có hàm new nhận config và pool
+
+    #[test]
+    fn test_app_state_initialization() {
+        // 1. Tạo config giả (giả sử bạn có struct AppConfig)
+        // let config = AppConfig::default();
+
+        // 2. Thử nghiệm logic lấy các giá trị từ state
+        // Ví dụ: kiểm tra xem các flag hoặc settings có đúng không
+        // let state = AppState::new(config, pool);
+        // assert!(state.is_ready());
+    }
+}

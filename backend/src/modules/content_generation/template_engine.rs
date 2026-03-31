@@ -34,25 +34,13 @@ fn auto_style_from_jd(jd_text: &str, language: &str) -> &'static str {
     let lang = language.trim().to_lowercase();
 
     let formal_markers_vi = [
-        "tập đoàn",
-        "ngân hàng",
-        "tuân thủ",
-        "quy trình",
-        "enterprise",
+        "tập đoàn", "ngân hàng", "tuân thủ", "quy trình", "enterprise",
     ];
     let formal_markers_en = [
-        "corporation",
-        "bank",
-        "compliance",
-        "governance",
-        "enterprise",
+        "corporation", "bank", "compliance", "governance", "enterprise",
     ];
     let persuasive_markers = [
-        "marketing",
-        "sales",
-        "growth",
-        "brand",
-        "business development",
+        "marketing", "sales", "growth", "brand", "business development",
     ];
     let concise_markers = ["startup", "fast-paced", "remote", "product", "agile"];
 
@@ -86,14 +74,12 @@ fn resolve_style(style: &str, jd_text: &str, language: &str) -> &'static str {
 
 fn clean_line(line: &str) -> String {
     line.replace('\u{feff}', "")
-        // Sửa lỗi Clippy: Gộp nhiều lần replace ký tự bằng cùng một giá trị vào một mảng
         .replace(['\t', '|', '•', '●'], " ")
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
 }
 
-// Thêm allow(dead_code) vì hàm này chưa được gọi nhưng bạn có thể dùng để hậu xử lý text sau này
 #[allow(dead_code)]
 fn trim_trailing_punctuation(text: &str) -> String {
     text.trim()
@@ -109,15 +95,7 @@ fn looks_like_name(line: &str) -> bool {
 
     let lower = trimmed.to_lowercase();
     let blocked_tokens = [
-        "cv",
-        "resume",
-        "email",
-        "phone",
-        "address",
-        "experience",
-        "skills",
-        "github",
-        "linkedin",
+        "cv", "resume", "email", "phone", "address", "experience", "skills", "github", "linkedin",
     ];
     if blocked_tokens.iter().any(|token| lower.contains(token)) {
         return false;
@@ -180,20 +158,8 @@ fn extract_address(cv_text: &str) -> Option<String> {
 
 fn extract_key_skills(cv_text: &str) -> String {
     let skill_patterns = [
-        "python",
-        "java",
-        "javascript",
-        "typescript",
-        "react",
-        "node",
-        "docker",
-        "rust",
-        "sql",
-        "aws",
-        "git",
-        "linux",
-        "ci/cd",
-        "agile",
+        "python", "java", "javascript", "typescript", "react", "node", "docker",
+        "rust", "sql", "aws", "git", "linux", "ci/cd", "agile",
     ];
     let lower = cv_text.to_lowercase();
     let mut found = Vec::new();
@@ -282,35 +248,79 @@ fn build_context(cv_text: &str, jd_text: &str, language: &str) -> Context {
     ctx
 }
 
-pub fn render_email_subject(
-    cv: &str,
-    jd: &str,
-    lang: &str,
-    style: &str,
-) -> Result<String, tera::Error> {
+// Hàm render thật sự sử dụng Tera - Để test các hàm này cần mock file hệ thống hoặc init Tera
+pub fn render_email_subject(cv: &str, jd: &str, lang: &str, style: &str) -> Result<String, tera::Error> {
     let s = resolve_style(style, jd, lang);
     let name = format!("email_subject_{}_{}.tera", s, lang);
     get_templates().render(&name, &build_context(cv, jd, lang))
 }
 
-pub fn render_email_body(
-    cv: &str,
-    jd: &str,
-    lang: &str,
-    style: &str,
-) -> Result<String, tera::Error> {
+pub fn render_email_body(cv: &str, jd: &str, lang: &str, style: &str) -> Result<String, tera::Error> {
     let s = resolve_style(style, jd, lang);
     let name = format!("email_body_{}_{}.tera", s, lang);
     get_templates().render(&name, &build_context(cv, jd, lang))
 }
 
-pub fn render_cover_letter(
-    cv: &str,
-    jd: &str,
-    lang: &str,
-    style: &str,
-) -> Result<String, tera::Error> {
+pub fn render_cover_letter(cv: &str, jd: &str, lang: &str, style: &str) -> Result<String, tera::Error> {
     let s = resolve_style(style, jd, lang);
     let name = format!("cover_letter_{}_{}.tera", s, lang);
     get_templates().render(&name, &build_context(cv, jd, lang))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalize_style() {
+        assert_eq!(normalize_style("FORMAL"), "formal");
+        assert_eq!(normalize_style(" creative "), "persuasive");
+        assert_eq!(normalize_style("unknown"), "auto");
+    }
+
+    #[test]
+    fn test_auto_style_from_jd() {
+        let jd_bank = "Làm việc tại ngân hàng với quy trình nghiêm ngặt";
+        assert_eq!(auto_style_from_jd(jd_bank, "vi"), "formal");
+
+        let jd_startup = "Fast-paced startup looking for agile developers";
+        assert_eq!(auto_style_from_jd(jd_startup, "en"), "concise");
+    }
+
+    #[test]
+    fn test_clean_line() {
+        let line = "• Nguyễn | Văn \t A";
+        assert_eq!(clean_line(line), "Nguyễn Văn A");
+    }
+
+    #[test]
+    fn test_extract_candidate_name() {
+        let cv = "Họ và tên: Nguyễn Văn Rust\nEmail: rust@example.com";
+        assert_eq!(extract_candidate_name(cv), "Nguyễn Văn Rust");
+
+        let cv_no_tag = "Trần Thị Backend\nKinh nghiệm làm việc...";
+        assert_eq!(extract_candidate_name(cv_no_tag), "Trần Thị Backend");
+    }
+
+    #[test]
+    fn test_extract_metadata_full() {
+        let cv = "Nguyễn Văn A\n5 years experience\nSkills: Rust, Python\nEmail: a@test.com";
+        let jd = "Công ty: TechCorp\nVị trí: Senior Dev\nKính gửi: Ban Giám Đốc";
+
+        let meta = extract_metadata(cv, jd, "vi");
+
+        assert_eq!(meta.candidate_name, "Nguyễn Văn A");
+        assert_eq!(meta.company_name, "TechCorp");
+        assert_eq!(meta.years_experience, "5");
+        assert_eq!(meta.key_skills, "python, rust");
+        assert_eq!(meta.email, Some("a@test.com".to_string()));
+    }
+
+    #[test]
+    fn test_looks_like_name_validation() {
+        assert!(looks_like_name("Nguyễn Văn A"));
+        assert!(!looks_like_name("CV_2024")); // Chứa từ khóa chặn
+        assert!(!looks_like_name("John")); // Quá ngắn
+        assert!(!looks_like_name("Nguyen 123")); // Chứa số
+    }
 }
