@@ -1,0 +1,63 @@
+name: Career Compass Testing Pipeline
+
+# Pipeline này sẽ tự động chạy mỗi khi có người Push code hoặc tạo Pull Request
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  test_and_coverage:
+    name: Run Tests & Measure Coverage
+    runs-on: ubuntu-latest
+
+    # Thiết lập cơ sở dữ liệu Postgres ảo cho các bài DB Integration Test
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: career_compass_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 📥 Lấy mã nguồn (Checkout Repository)
+        uses: actions/checkout@v4
+
+      - name: 🦀 Cài đặt Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: ⚙️ Cài đặt công cụ đo độ bao phủ (cargo-tarpaulin)
+        run: cargo install cargo-tarpaulin
+
+      - name: 🧹 Kiểm tra định dạng code (Format Check)
+        working-directory: ./backend
+        run: cargo fmt --all -- --check
+
+      - name: 🔍 Phân tích tĩnh (Clippy Linter)
+        working-directory: ./backend
+        run: cargo clippy -- -D warnings
+
+      - name: 🚀 Chạy toàn bộ Test và Đo Coverage
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgres://test_user:test_password@localhost:5432/career_compass_test
+          # Thêm các biến môi trường cần thiết khác cho test ở đây
+        # Tarpaulin sẽ chạy test và xuất ra file báo cáo tarpaulin-report.html
+        run: cargo tarpaulin --out Html --engine llvm
+
+      - name: 📊 Lưu báo cáo Coverage (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-report
+          path: backend/tarpaulin-report.html
