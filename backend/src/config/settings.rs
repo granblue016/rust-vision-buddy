@@ -1,6 +1,6 @@
 use std::{env, num::ParseIntError};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)] // Đã thêm Default ở đây
 pub struct Settings {
     pub backend_host: String,
     pub backend_port: u16,
@@ -12,21 +12,21 @@ pub struct Settings {
     pub gemini_model: String,
     pub nlp_service_url: String,
     pub nlp_timeout_ms: u64,
-    
+
     // Database
     pub database_url: String,
-    
+
     // Google OAuth
     pub google_client_id: String,
     pub google_client_secret: String,
     pub google_redirect_uri: String,
-    
+
     // GitHub OAuth
     pub github_client_id: String,
     pub github_client_secret: String,
     pub github_redirect_uri: String,
-    
-    // Frontend URL for OAuth redirects
+
+    // Frontend URL
     pub frontend_url: String,
 }
 
@@ -41,38 +41,30 @@ impl Settings {
             jwt_expires_minutes: env::var("JWT_EXPIRES_MINUTES")
                 .unwrap_or_else(|_| "120".to_string())
                 .parse()?,
-            admin_email: env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@careercompass.local".to_string()),
+            admin_email: env::var("ADMIN_EMAIL")
+                .unwrap_or_else(|_| "admin@careercompass.local".to_string()),
             admin_password: env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "".to_string()),
             gemini_api_key: env::var("GOOGLE_GEMINI_API_KEY")
                 .map_err(|_| SettingsError::Missing("GOOGLE_GEMINI_API_KEY"))?,
-            gemini_model: env::var("GOOGLE_GEMINI_MODEL").unwrap_or_else(|_| "gemini-1.5-flash".to_string()),
+            gemini_model: env::var("GOOGLE_GEMINI_MODEL")
+                .unwrap_or_else(|_| "gemini-1.5-flash".to_string()),
             nlp_service_url: env::var("NLP_SERVICE_URL")
                 .unwrap_or_else(|_| "http://127.0.0.1:8001".to_string()),
             nlp_timeout_ms: env::var("NLP_TIMEOUT_MS")
                 .unwrap_or_else(|_| "10000".to_string())
                 .parse()?,
-            
-            // Database
             database_url: env::var("DATABASE_URL")
                 .map_err(|_| SettingsError::Missing("DATABASE_URL"))?,
-            
-            // Google OAuth
-            google_client_id: env::var("GOOGLE_CLIENT_ID")
-                .unwrap_or_else(|_| "".to_string()),
-            google_client_secret: env::var("GOOGLE_CLIENT_SECRET")
-                .unwrap_or_else(|_| "".to_string()),
-            google_redirect_uri: env::var("GOOGLE_REDIRECT_URI")
-                .unwrap_or_else(|_| "http://localhost:9000/api/v1/auth/google/callback".to_string()),
-            
-            // GitHub OAuth
-            github_client_id: env::var("GITHUB_CLIENT_ID")
-                .unwrap_or_else(|_| "".to_string()),
-            github_client_secret: env::var("GITHUB_CLIENT_SECRET")
-                .unwrap_or_else(|_| "".to_string()),
-            github_redirect_uri: env::var("GITHUB_REDIRECT_URI")
-                .unwrap_or_else(|_| "http://localhost:9000/api/v1/auth/github/callback".to_string()),
-            
-            // Frontend URL
+            google_client_id: env::var("GOOGLE_CLIENT_ID").unwrap_or_default(),
+            google_client_secret: env::var("GOOGLE_CLIENT_SECRET").unwrap_or_default(),
+            google_redirect_uri: env::var("GOOGLE_REDIRECT_URI").unwrap_or_else(|_| {
+                "http://localhost:9000/api/v1/auth/google/callback".to_string()
+            }),
+            github_client_id: env::var("GITHUB_CLIENT_ID").unwrap_or_default(),
+            github_client_secret: env::var("GITHUB_CLIENT_SECRET").unwrap_or_default(),
+            github_redirect_uri: env::var("GITHUB_REDIRECT_URI").unwrap_or_else(|_| {
+                "http://localhost:9000/api/v1/auth/github/callback".to_string()
+            }),
             frontend_url: env::var("FRONTEND_URL")
                 .unwrap_or_else(|_| "http://localhost:8080".to_string()),
         })
