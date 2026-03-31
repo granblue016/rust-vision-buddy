@@ -70,8 +70,8 @@ pub async fn chat_assistant(
 
     let reply = res_json
         .candidates
-        .get(0)
-        .and_then(|c| c.content.parts.get(0))
+        .first()
+        .and_then(|c| c.content.parts.first())
         .map(|p| p.text.clone())
         .ok_or(ApiError::Internal)?;
 

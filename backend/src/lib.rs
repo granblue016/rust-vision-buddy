@@ -1,4 +1,3 @@
-
 pub mod config;
 pub mod modules;
 pub mod services;
@@ -7,7 +6,6 @@ pub mod shared;
 use axum::http::header;
 use axum::http::{HeaderValue, Method};
 use axum::Router;
-use config::settings::Settings;
 use modules::{ai, auth, content_generation, cv, health, scoring};
 use shared::app_state::AppState;
 use tower_http::cors::CorsLayer;

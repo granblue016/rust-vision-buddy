@@ -10,7 +10,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use tracing::{error, info};
+use tracing::error;
 use uuid::Uuid;
 
 pub async fn create_cv(

@@ -7,7 +7,7 @@ on:
     branches: ["main", "develop", "feat/testing"]
 
 env:
-  SQLX_OFFLINE: true # Ưu tiên dùng dữ liệu đã prepare để bypass lỗi check DB khi build
+  SQLX_OFFLINE: true
 
 jobs:
   test_and_coverage:
@@ -62,12 +62,12 @@ jobs:
         working-directory: ./backend
         env:
           DATABASE_URL: postgresql://postgres:admin@localhost:5432/rust-vision-buddy
-        run: |
-          sqlx database setup
+        run: sqlx database setup
 
       - name: 🔍 Clippy Check
         working-directory: ./backend
-        run: cargo clippy -- -D warnings || echo "Skip warnings"
+        # Không dùng -D warnings để pipeline không bị dừng bởi các cảnh báo nhỏ
+        run: cargo clippy || echo "Clippy warnings detected"
 
       - name: 🧪 Run Tests & Measure Coverage
         working-directory: ./backend

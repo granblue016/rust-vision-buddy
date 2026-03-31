@@ -86,15 +86,15 @@ fn resolve_style(style: &str, jd_text: &str, language: &str) -> &'static str {
 
 fn clean_line(line: &str) -> String {
     line.replace('\u{feff}', "")
-        .replace('\t', " ")
-        .replace('|', " ")
-        .replace('•', " ")
-        .replace('●', " ")
+        // Sửa lỗi Clippy: Gộp nhiều lần replace ký tự bằng cùng một giá trị vào một mảng
+        .replace(['\t', '|', '•', '●'], " ")
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
 }
 
+// Thêm allow(dead_code) vì hàm này chưa được gọi nhưng bạn có thể dùng để hậu xử lý text sau này
+#[allow(dead_code)]
 fn trim_trailing_punctuation(text: &str) -> String {
     text.trim()
         .trim_end_matches(|c: char| [',', ';', ':', '.'].contains(&c))

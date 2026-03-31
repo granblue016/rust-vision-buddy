@@ -1,8 +1,6 @@
 use crate::{
     modules::ai::{
         gemini_client,
-        // Giả sử hàm này nằm trong handlers hoặc baseline, ta cần import nó vào scope này
-        handlers::calculate_baseline_score,
         models::{ChatAssistantResponse, ChatMessage},
         prompt_templates,
     },
@@ -45,13 +43,49 @@ pub async fn chat_assistant(
     })
 }
 
+/// Hàm tính điểm cơ bản dựa trên từ khóa (được sử dụng cho logic so khớp sơ bộ)
+pub fn calculate_baseline_score(cv_text: &str, jd_text: &str) -> f64 {
+    if cv_text.is_empty() || jd_text.is_empty() {
+        return 0.0;
+    }
+
+    let cv_lower = cv_text.to_lowercase();
+    let jd_lower = jd_text.to_lowercase();
+
+    // Danh sách từ khóa kỹ thuật phổ biến để so khớp
+    let keywords = [
+        "rust",
+        "python",
+        "react",
+        "typescript",
+        "axum",
+        "node",
+        "sql",
+        "docker",
+    ];
+    let mut matches = 0;
+    let mut total_relevant = 0;
+
+    for kw in keywords {
+        if jd_lower.contains(kw) {
+            total_relevant += 1;
+            if cv_lower.contains(kw) {
+                matches += 1;
+            }
+        }
+    }
+
+    if total_relevant == 0 {
+        return 0.0;
+    }
+    (matches as f64 / total_relevant as f64) * 100.0
+}
+
 // =================================================================
 // UNIT TESTS - GIAI ĐOẠN 1: BOUNDARY ANALYSIS
 // =================================================================
 #[cfg(test)]
 mod tests {
-    // Dòng này giúp module con 'tests' thấy được hàm calculate_baseline_score
-    // đã được import ở đầu file.
     use super::*;
 
     #[test]

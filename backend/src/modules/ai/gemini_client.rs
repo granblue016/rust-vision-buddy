@@ -39,8 +39,8 @@ pub async fn generate_text(state: &AppState, prompt: String) -> Result<String, A
     // 5. Trích xuất nội dung text từ cấu hình phân cấp của Google
     let output = res_json
         .candidates
-        .get(0)
-        .and_then(|c| c.content.parts.get(0))
+        .first()
+        .and_then(|c| c.content.parts.first())
         .map(|p| p.text.clone())
         .ok_or_else(|| {
             eprintln!("🔥 Gemini: Phản hồi trống từ Google API");
