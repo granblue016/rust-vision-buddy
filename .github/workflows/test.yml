@@ -8,6 +8,8 @@ on:
 
 env:
   SQLX_OFFLINE: true
+  # URL này khớp với cấu hình của service postgres bên dưới
+  DATABASE_URL: postgresql://postgres:admin@localhost:5432/rust-vision-buddy
 
 jobs:
   test_and_coverage:
@@ -61,18 +63,22 @@ jobs:
       - name: 🚀 Setup Database Migrations
         working-directory: ./backend
         env:
-          DATABASE_URL: postgresql://postgres:admin@localhost:5432/rust-vision-buddy
+          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: sqlx database setup
 
       - name: 🔍 Clippy Check
         working-directory: ./backend
-        # Không dùng -D warnings để pipeline không bị dừng bởi các cảnh báo nhỏ
         run: cargo clippy || echo "Clippy warnings detected"
 
       - name: 🧪 Run Tests & Measure Coverage
         working-directory: ./backend
         env:
-          DATABASE_URL: postgresql://postgres:admin@localhost:5432/rust-vision-buddy
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          # Sử dụng Secret thay vì viết text trực tiếp (Bảo mật)
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+          JWT_EXPIRES_MINUTES: 120
+          NLP_SERVICE_URL: "http://127.0.0.1:8001"
         run: cargo tarpaulin --out Html --engine llvm --ignore-panics --no-fail-fast
 
       - name: 📊 Upload Coverage Report
