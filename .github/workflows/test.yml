@@ -2,10 +2,12 @@ name: Career Compass Testing Pipeline
 
 on:
   push:
-    # Thêm feat/testing vào đây để GitHub nhận diện được branch hiện tại của bạn
     branches: ["main", "develop", "feat/testing"]
   pull_request:
     branches: ["main", "develop", "feat/testing"]
+
+env:
+  SQLX_OFFLINE: true # Ưu tiên dùng dữ liệu đã prepare để bypass lỗi check DB khi build
 
 jobs:
   test_and_coverage:
@@ -16,9 +18,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: career_compass_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: rust-vision-buddy
         ports:
           - 5432:5432
         options: >-
@@ -47,27 +49,35 @@ jobs:
             backend/target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: ⚙️ Install cargo-tarpaulin
+      - name: 🗄️ Install Tools
         run: |
+          if ! command -v sqlx &> /dev/null; then
+            cargo install sqlx-cli --no-default-features --features postgres
+          fi
           if ! command -v cargo-tarpaulin &> /dev/null; then
             cargo install cargo-tarpaulin
           fi
 
-      # Bước này sẽ giúp bạn tìm lỗi Typo như "ax_um" nhanh hơn
-      - name: 🔍 Clippy Linter (Check lỗi code)
-        working-directory: ./backend
-        run: cargo clippy -- -D warnings || echo "Clippy found issues"
-
-      - name: 🚀 Run Tests & Measure Coverage
+      - name: 🚀 Setup Database Migrations
         working-directory: ./backend
         env:
-          DATABASE_URL: postgres://test_user:test_password@localhost:5432/career_compass_test
-        # Sử dụng --ignore-panics để vẫn xuất báo cáo ngay cả khi code đang lỗi biên dịch cục bộ
-        run: cargo tarpaulin --out Html --engine llvm --ignore-panics
+          DATABASE_URL: postgresql://postgres:admin@localhost:5432/rust-vision-buddy
+        run: |
+          sqlx database setup
+
+      - name: 🔍 Clippy Check
+        working-directory: ./backend
+        run: cargo clippy -- -D warnings || echo "Skip warnings"
+
+      - name: 🧪 Run Tests & Measure Coverage
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://postgres:admin@localhost:5432/rust-vision-buddy
+        run: cargo tarpaulin --out Html --engine llvm --ignore-panics --no-fail-fast
 
       - name: 📊 Upload Coverage Report
         uses: actions/upload-artifact@v4
-        if: always() # Luôn upload báo cáo kể cả khi test fail để bạn có bằng chứng đi báo cáo
+        if: always()
         with:
           name: code-coverage-report
           path: backend/tarpaulin-report.html

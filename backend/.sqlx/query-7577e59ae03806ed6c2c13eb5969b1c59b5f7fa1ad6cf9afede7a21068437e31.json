@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO cvs (id, user_id, name, layout_data)\n        VALUES ($1, $2, $3, $4)\n        ",
+  "query": "INSERT INTO cvs (id, user_id, name, layout_data) VALUES ($1, $2, $3, $4)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -13,5 +13,5 @@
     },
     "nullable": []
   },
-  "hash": "0cc3eebbb59e5e7f3cc485e736289c06d7e0eaaf02f13ddd705928739ad57f94"
+  "hash": "7577e59ae03806ed6c2c13eb5969b1c59b5f7fa1ad6cf9afede7a21068437e31"
 }
