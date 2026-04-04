@@ -72,6 +72,8 @@
         /* Fonts */
         --font-display: "Space Grotesk", sans-serif;
         --font-body: "Inter", sans-serif;
+        /* THÊM DÒNG NÀY: Khai báo biến cho Times New Roman */
+        --font-times: "Times New Roman", Times, serif;
     }
 
     .dark {
@@ -164,24 +166,20 @@
 
 /* --- CẤU HÌNH IN ẤN (PDF EXPORT) --- */
 @media print {
-    /* 1. Xóa lề mặc định của trình duyệt để A4 tràn viền đẹp */
     @page {
         size: A4;
         margin: 0mm !important;
     }
 
-    /* 2. Giấu tất cả các thành phần UI (Toolbar, Sidebar, Buttons) */
     body * {
         visibility: hidden;
     }
 
-    /* 3. Chỉ hiển thị vùng CV */
     #cv-print-area,
     #cv-print-area * {
         visibility: visible;
     }
 
-    /* 4. Định vị vùng CV lên góc trên cùng bên trái của tờ giấy */
     #cv-print-area {
         position: absolute;
         left: 0;
@@ -193,16 +191,15 @@
         border: none !important;
         box-shadow: none !important;
         visibility: visible;
+        /* Đảm bảo khi in ra đúng font đã chọn */
     }
 
-    /* 5. Ép trình duyệt giữ nguyên màu nền và hình ảnh */
     * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         color-adjust: exact !important;
     }
 
-    /* 6. Loại bỏ các hiệu ứng hover/transition khi in */
     .transition-all,
     .transition-colors {
         transition: none !important;

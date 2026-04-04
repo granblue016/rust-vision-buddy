@@ -69,10 +69,12 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      // Thêm font chữ từ index.css
+      // Thêm font chữ và kết nối với các biến CSS trong index.css
       fontFamily: {
         display: ["var(--font-display)", "sans-serif"],
         body: ["var(--font-body)", "sans-serif"],
+        // Cập nhật: Sử dụng biến CSS để đồng bộ với index.css
+        times: ["var(--font-times)", "Times", "serif"],
       },
     },
   },

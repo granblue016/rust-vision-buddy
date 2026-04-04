@@ -4,9 +4,19 @@ import { Underline } from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily } from "@tiptap/extension-font-family";
 import { useEffect, useState, useRef } from "react";
-import { Bold, Italic, Underline as UnderlineIcon } from "lucide-react";
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  Type,
+  Languages,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// 1. CUSTOM EXTENSION CHO FONT SIZE (Hỗ trợ inline style)
+// Import hằng số font dùng chung để đồng bộ toàn project
+import { FONT_OPTIONS } from "@/lib/fonts";
+
+// 1. CUSTOM EXTENSION CHO FONT SIZE
 const FontSize = Extension.create({
   name: "fontSize",
   addOptions() {
@@ -60,19 +70,21 @@ export const InlineRichText = ({
   style,
 }: InlineRichTextProps) => {
   const [isFocused, setIsFocused] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null); // Quan trọng: Ref để quản lý vùng click
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
     extensions: [StarterKit, Underline, TextStyle, FontFamily, FontSize],
     content: value,
     editorProps: {
       attributes: {
-        class: `outline-none focus:ring-0 prose prose-sm max-w-none ${className}`,
+        class: cn(
+          "outline-none focus:ring-0 prose prose-sm max-w-none",
+          className,
+        ),
       },
     },
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      // Chỉ gọi onChange khi nội dung thực sự thay đổi để tránh vòng lặp render
       if (html !== value) {
         onChange(html);
       }
@@ -80,8 +92,7 @@ export const InlineRichText = ({
     onFocus: () => setIsFocused(true),
   });
 
-  // LOGIC FIX LỖI DROPDOWN:
-  // Chỉ đóng Toolbar khi người dùng click thực sự ra ngoài container (bao gồm cả editor và toolbar)
+  // Đóng Toolbar khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -91,90 +102,122 @@ export const InlineRichText = ({
         setIsFocused(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Đồng bộ content khi value từ Store thay đổi (ví dụ: AI Auto-fill)
+  // Đồng bộ content khi store thay đổi
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
       editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
 
+  if (!editor) return null;
+
+  // --- LOGIC HIỂN THỊ CHÍNH XÁC ---
+  const currentAttrs = editor.getAttributes("textStyle");
+
+  // Tiptap thường trả về font kèm dấu nháy, ví dụ: "'Times New Roman'"
+  // Chúng ta xóa dấu nháy để so sánh chuẩn xác
+  const rawFont = (currentAttrs.fontFamily || "").replace(/['"]/g, "").trim();
+
+  // Tìm font khớp trong FONT_OPTIONS
+  const currentFont =
+    FONT_OPTIONS.find((f) => {
+      const cleanOptionValue = f.value
+        .replace(/['"]/g, "")
+        .split(",")[0]
+        .trim();
+      return cleanOptionValue === rawFont || rawFont.includes(f.label);
+    })?.value || FONT_OPTIONS[0].value;
+
+  const currentSize = currentAttrs.fontSize || "16px";
+
   return (
     <div className="relative w-full group/editor" ref={containerRef}>
-      {editor && isFocused && (
+      {isFocused && (
         <div
-          className="absolute -top-12 left-0 flex items-center gap-1.5 bg-white border border-slate-200 shadow-xl rounded-md p-1.5 z-[100] animate-in fade-in slide-in-from-bottom-2"
-          // Ngăn sự kiện mousedown lan ra ngoài gây đóng toolbar đột ngột
+          className="absolute -top-12 left-0 flex items-center gap-1 bg-white border border-slate-200 shadow-xl rounded-md p-1 z-[100] animate-in fade-in slide-in-from-bottom-2"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {/* Dropdown chọn Font Family */}
-          <select
-            onChange={(e) => {
-              editor
-                .chain()
-                .focus()
-                .setFontFamily(
-                  e.target.value === "default" ? "" : e.target.value,
-                )
-                .run();
-            }}
-            className="text-[11px] border-slate-200 rounded px-1 py-0.5 text-slate-700 bg-slate-50 hover:bg-slate-100 cursor-pointer outline-none focus:ring-1 focus:ring-indigo-300"
-            value={editor.getAttributes("textStyle").fontFamily || "default"}
-          >
-            <option value="default">Phông chữ</option>
-            <option value="Inter">Inter</option>
-            <option value="Roboto">Roboto</option>
-            <option value="serif">Serif (Harvard)</option>
-            <option value="monospace">Mono</option>
-          </select>
-
-          {/* Dropdown chọn Font Size */}
-          <select
-            onChange={(e) => {
-              const cmd = editor.chain().focus() as any;
-              if (e.target.value === "default") cmd.unsetFontSize().run();
-              else cmd.setFontSize(e.target.value).run();
-            }}
-            className="text-[11px] border-slate-200 rounded px-1 py-0.5 text-slate-700 bg-slate-50 hover:bg-slate-100 cursor-pointer outline-none focus:ring-1 focus:ring-indigo-300"
-            value={editor.getAttributes("textStyle").fontSize || "default"}
-          >
-            <option value="default">Cỡ</option>
-            <option value="11px">11px</option>
-            <option value="12px">12px</option>
-            <option value="14px">14px</option>
-            <option value="16px">16px</option>
-          </select>
+          {/* Bộ chọn Phông chữ */}
+          <div className="flex items-center px-1 gap-1">
+            <Languages size={12} className="text-slate-400" />
+            <select
+              value={currentFont}
+              onChange={(e) =>
+                editor.chain().focus().setFontFamily(e.target.value).run()
+              }
+              className="text-[11px] font-bold border-none bg-transparent hover:bg-slate-50 cursor-pointer outline-none min-w-[100px]"
+            >
+              {FONT_OPTIONS.map((font) => (
+                <option key={font.id} value={font.value}>
+                  {font.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
 
-          {/* Nhóm nút Style */}
+          {/* Bộ chọn Cỡ chữ */}
+          <div className="flex items-center px-1 gap-1">
+            <Type size={12} className="text-slate-400" />
+            <select
+              value={currentSize}
+              onChange={(e) =>
+                (editor.chain().focus() as any)
+                  .setFontSize(e.target.value)
+                  .run()
+              }
+              className="text-[11px] font-bold border-none bg-transparent hover:bg-slate-50 cursor-pointer outline-none"
+            >
+              {["12px", "14px", "16px", "18px", "24px"].map((size) => (
+                <option key={size} value={size}>
+                  {size.replace("px", "")}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="w-[1px] h-4 bg-slate-200 mx-0.5" />
+
+          {/* Các nút định dạng nhanh */}
           <div className="flex items-center gap-0.5">
             <button
               type="button"
               onClick={() => editor.chain().focus().toggleBold().run()}
-              className={`p-1 rounded transition-colors ${editor.isActive("bold") ? "text-indigo-600 bg-indigo-50" : "text-slate-600 hover:bg-slate-100"}`}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                editor.isActive("bold")
+                  ? "text-indigo-600 bg-indigo-50"
+                  : "text-slate-600 hover:bg-slate-100",
+              )}
             >
               <Bold size={14} />
             </button>
-
             <button
               type="button"
               onClick={() => editor.chain().focus().toggleItalic().run()}
-              className={`p-1 rounded transition-colors ${editor.isActive("italic") ? "text-indigo-600 bg-indigo-50" : "text-slate-600 hover:bg-slate-100"}`}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                editor.isActive("italic")
+                  ? "text-indigo-600 bg-indigo-50"
+                  : "text-slate-600 hover:bg-slate-100",
+              )}
             >
               <Italic size={14} />
             </button>
-
             <button
               type="button"
               onClick={() => editor.chain().focus().toggleUnderline().run()}
-              className={`p-1 rounded transition-colors ${editor.isActive("underline") ? "text-indigo-600 bg-indigo-50" : "text-slate-600 hover:bg-slate-100"}`}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                editor.isActive("underline")
+                  ? "text-indigo-600 bg-indigo-50"
+                  : "text-slate-600 hover:bg-slate-100",
+              )}
             >
               <UnderlineIcon size={14} />
             </button>
@@ -182,12 +225,10 @@ export const InlineRichText = ({
         </div>
       )}
 
-      {/* Vùng hiển thị Editor */}
+      {/* Editor Content */}
       <div style={style} className="relative z-10">
         <EditorContent editor={editor} />
-
-        {/* Placeholder xử lý thủ công để mượt mà hơn với Tiptap */}
-        {editor && editor.isEmpty && placeholder && (
+        {editor.isEmpty && placeholder && (
           <div className="absolute left-0 top-0 pointer-events-none text-slate-400 italic opacity-50 select-none">
             {placeholder}
           </div>

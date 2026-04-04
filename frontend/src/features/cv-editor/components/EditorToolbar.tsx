@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   Loader2,
   Check,
   ArrowLeft,
   Printer,
   LayoutTemplate,
-  Globe,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -22,7 +21,7 @@ const TEMPLATES = [
 ];
 
 /**
- * HELPER: Loại bỏ thẻ HTML để dữ liệu gửi lên Rust Backend sạch sẽ
+ * HELPER: Loại bỏ thẻ HTML để dữ liệu sạch sẽ
  */
 const stripHtml = (text: string): string => {
   if (!text) return "";
@@ -30,28 +29,32 @@ const stripHtml = (text: string): string => {
 };
 
 const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
-  // Bổ sung setLanguage từ Store
   const { data, updateTheme, name, updateCvName, saveChanges, setLanguage } =
     useCvStore();
+
   const [isPrinting, setIsPrinting] = useState(false);
 
-  if (!data) return null;
-
-  // Logic chọn bộ từ điển dựa trên language trong store
-  const currentLang = data.language || "vi";
-  const t = currentLang === "en" ? en : vi;
-
-  const handleExportPdf = () => {
+  const handleExportPdf = useCallback(() => {
     setIsPrinting(true);
     setTimeout(() => {
       window.print();
       setIsPrinting(false);
     }, 500);
-  };
+  }, []);
+
+  if (!data) return null;
+
+  const currentLang = data.language || "vi";
+  const t = currentLang === "en" ? en : vi;
+
+  const commonTranslations = t.common as Record<string, string>;
+  const placeholderText =
+    commonTranslations?.cv_name_placeholder ||
+    (currentLang === "vi" ? "Nhập tên CV..." : "Enter CV name...");
 
   return (
     <header className="h-14 shrink-0 border-b border-slate-200 bg-white/90 backdrop-blur-md flex items-center px-6 sticky top-0 z-[100] shadow-sm print:hidden">
-      {/* CÁNH TRÁI: Điều hướng, Template & NGÔN NGỮ */}
+      {/* CÁNH TRÁI: Điều hướng, Template & Ngôn ngữ */}
       <div className="flex items-center gap-4 flex-1">
         <Link
           to="/dashboard"
@@ -59,7 +62,7 @@ const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
           <span className="hidden lg:inline font-bold">
-            {t.common?.dashboard || "Dashboard"}
+            {commonTranslations?.dashboard || "Dashboard"}
           </span>
         </Link>
 
@@ -81,9 +84,14 @@ const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
           </select>
         </div>
 
-        {/* THANH CHUYỂN ĐỔI NGÔN NGỮ (BỔ SUNG) */}
-        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 ml-2 shadow-sm">
+        {/* --- PHẦN CHỌN FONT ĐÃ ĐƯỢC XÓA TẠI ĐÂY --- */}
+
+        <div className="w-px h-6 bg-slate-200 shrink-0 mx-2" />
+
+        {/* THANH CHUYỂN ĐỔI NGÔN NGỮ */}
+        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shadow-sm">
           <button
+            type="button"
             onClick={() => setLanguage("vi")}
             className={`px-2.5 py-1 text-[10px] font-black rounded-md transition-all ${
               currentLang === "vi"
@@ -94,6 +102,7 @@ const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
             VI
           </button>
           <button
+            type="button"
             onClick={() => setLanguage("en")}
             className={`px-2.5 py-1 text-[10px] font-black rounded-md transition-all ${
               currentLang === "en"
@@ -108,21 +117,21 @@ const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
 
       {/* TRUNG TÂM: Tên CV */}
       <div className="flex-[1.5] flex justify-center px-4">
-        <div className="flex flex-col items-center max-w-[300px] w-full">
+        <div className="flex flex-col items-center max-w-[400px] w-full">
           <input
             type="text"
-            value={name || ""}
+            value={stripHtml(name || "")}
             onChange={(e) => updateCvName(e.target.value)}
             onBlur={() => {
-              const cleanName = stripHtml(name);
+              const cleanName = stripHtml(name || "");
               updateCvName(cleanName);
               saveChanges();
             }}
-            className="w-full text-center text-sm font-bold text-slate-700 px-3 py-1
+            className="w-full text-center text-sm font-bold text-slate-700 px-3 py-1.5
                        bg-slate-50/50 rounded-md border border-transparent
                        focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-50
                        hover:bg-slate-100 transition-all outline-none truncate"
-            placeholder="Nhập tên CV..."
+            placeholder={placeholderText}
           />
         </div>
       </div>
@@ -134,14 +143,14 @@ const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
             <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 shadow-sm">
               <Loader2 className="w-3 h-3 animate-spin" />
               <span className="uppercase tracking-wider">
-                {t.common?.syncing || "Syncing..."}
+                {commonTranslations?.syncing || "Syncing..."}
               </span>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-[10px] text-emerald-600 font-bold px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-100 shadow-sm">
               <Check className="w-3 h-3" />
               <span className="uppercase tracking-wider">
-                {t.common?.synced || "Synced"}
+                {commonTranslations?.synced || "Synced"}
               </span>
             </div>
           )}
@@ -160,7 +169,9 @@ const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
             <Printer className="w-3.5 h-3.5 text-slate-500" />
           )}
           <span className="text-xs uppercase hidden sm:inline">
-            {isPrinting ? "Exporting..." : t.common?.export_pdf || "Export PDF"}
+            {isPrinting
+              ? "Exporting..."
+              : commonTranslations?.export_pdf || "Export PDF"}
           </span>
         </Button>
       </div>
