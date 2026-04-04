@@ -6,7 +6,7 @@ import {
   PersonalInfo,
   CvTheme,
   CvItem,
-  CvLayoutState, // Import thêm để define type cho Drag & Drop
+  CvLayoutState,
 } from "../types/cv";
 import { cvService } from "../services/cvService";
 
@@ -44,8 +44,17 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       const response = await cvService.getById(id);
       const res = response as any;
 
-      // CHUẨN HÓA: Xử lý cả snake_case và camelCase từ Backend
       const incoming = res.layoutData || res.layout_data || {};
+
+      // --- CHIẾN THUẬT LỌC DỮ LIỆU TẠI ĐÂY ---
+      if (incoming.personalInfo) {
+        // Chỉ lọc bỏ tên nếu khớp với chuỗi mặc định từ Backend
+        if (incoming.personalInfo.fullName === "NGUYỄN VĂN ABCDEFFFG") {
+          incoming.personalInfo.fullName = "";
+        }
+        // Giữ nguyên title (Vị trí ứng tuyển) không lọc bỏ
+      }
+      // ---------------------------------------
 
       const mergedData: CvLayoutData = {
         ...DEFAULT_CV_DATA,
@@ -71,7 +80,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
 
   saveChanges: async () => {
     const state = get();
-    // Kiểm tra an toàn: Chỉ lưu khi có thay đổi và không đang trong quá trình lưu
     if (!state.currentCvId || !state.isDirty || state.isSaving || !state.data)
       return;
 
@@ -85,7 +93,7 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
           ...data,
           personalInfo: {
             ...data.personalInfo,
-            fullName: name, // Đồng bộ tên vào JSON
+            fullName: data.personalInfo.fullName || name, // Ưu tiên fullName, nếu rỗng thì dùng name CV
             avatar: toOption(data.personalInfo.avatar),
           },
           sections: data.sections.map((s) => ({
@@ -148,7 +156,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       };
     }),
 
-  // SỬA LỖI: Thêm type cho sectionId, sourceCol, destCol, index
   moveSection: (
     sectionId: string,
     sourceCol: keyof CvLayoutState,
@@ -170,7 +177,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       };
     }),
 
-  // SỬA LỖI: Thêm type cho field và value
   updateCvField: (field: keyof CvLayoutData, value: any) =>
     set((state) => {
       if (!state.data) return state;
@@ -180,7 +186,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       };
     }),
 
-  // SỬA LỖI: Thêm type cho sectionId
   toggleSectionVisibility: (sectionId: string) =>
     set((state) => {
       if (!state.data) return state;
@@ -195,7 +200,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       };
     }),
 
-  // SỬA LỖI: Thêm type cho title
   updateSectionTitle: (sectionId: string, title: string) =>
     set((state) => {
       if (!state.data) return state;
@@ -210,7 +214,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       };
     }),
 
-  // SỬA LỖI: Thêm type cho content
   updateSectionContent: (sectionId: string, content: string | null) =>
     set((state) => {
       if (!state.data) return state;
@@ -225,7 +228,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       };
     }),
 
-  // SỬA LỖI: Thêm type cho field và value
   updateItemField: (
     sectionId: string,
     itemId: string,
@@ -252,7 +254,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       };
     }),
 
-  // SỬA LỖI: Thêm type cho sectionId
   addItem: (sectionId: string) =>
     set((state) => {
       if (!state.data) return state;
@@ -278,7 +279,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       };
     }),
 
-  // SỬA LỖI: Thêm type cho sectionId, itemId
   removeItem: (sectionId: string, itemId: string) =>
     set((state) => {
       if (!state.data) return state;
@@ -295,7 +295,6 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
       };
     }),
 
-  // SỬA LỖI: Thêm type cho columnId, newIds
   reorderSections: (columnId: keyof CvLayoutState, newIds: string[]) =>
     set((state) => {
       if (!state.data) return state;
@@ -312,14 +311,12 @@ export const useCvStore = create<CvStoreState>((set, get) => ({
   setInitialData: (data: CvLayoutData) => set({ data, isDirty: false }),
   triggerAutoSave: () => set({ isDirty: true }),
 
-  // SỬA LỖI: Thêm type cho lang (vi | en)
   setLanguage: (lang: "vi" | "en") =>
     set((state) => ({
       isDirty: true,
       data: state.data ? { ...state.data, language: lang } : null,
     })),
 
-  // SỬA LỖI: Thêm type cho id (string) - Gạch đỏ trong ảnh cuối cùng của bạn
   setTemplateId: (id: string) =>
     set((state) => ({
       isDirty: true,

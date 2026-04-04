@@ -29,6 +29,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
   templateId = "standard",
 }) => {
   const storeData = useCvStore((state) => state.data);
+  const storeName = useCvStore((state) => state.name); // Lấy name từ Store để đồng bộ
   const updatePersonalInfo = useCvStore((state) => state.updatePersonalInfo);
 
   // VẤN ĐỀ 1 ĐÃ SỬA: Thêm Optional Chaining (?.) để tránh crash khi storeData bị null
@@ -40,6 +41,9 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
   if (!info) return null;
 
   const isHarvard = templateId.toLowerCase().includes("harvard");
+
+  // Logic hiển thị tên: Ưu tiên info.fullName, nếu trống thì dùng storeName
+  const displayFullName = info.fullName || (!isPreview ? storeName : "") || "";
 
   return (
     <header
@@ -60,11 +64,11 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
                 : "text-4xl font-black text-slate-800 tracking-tight"
             }`}
           >
-            {safeClean(info.fullName, "HỌ TÊN CỦA BẠN")}
+            {safeClean(displayFullName, "HỌ TÊN CỦA BẠN")}
           </h1>
         ) : (
           <InlineRichText
-            value={info.fullName || ""}
+            value={displayFullName}
             // VẤN ĐỀ 2 ĐÃ SỬA: Truyền tham số dạng Object để khớp với chuẩn Zustand
             onChange={(val: string) => updatePersonalInfo({ fullName: val })}
             className={`uppercase break-words leading-[1.1] outline-none w-full text-center ${

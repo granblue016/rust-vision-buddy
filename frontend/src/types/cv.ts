@@ -154,6 +154,7 @@ export interface CvStoreState {
 
 /**
  * Dữ liệu mặc định cho CV mới
+ * ĐÃ KIỂM TRA: Đảm bảo fullName và các trường thông tin đều để trống.
  */
 export const DEFAULT_CV_DATA: CvLayoutData = {
   templateId: "standard-01",
