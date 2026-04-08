@@ -156,7 +156,7 @@ export interface CvStoreState {
  * Dữ liệu mặc định cho CV mới
  */
 export const DEFAULT_CV_DATA: CvLayoutData = {
-  templateId: "standard-01",
+  templateId: "harvard-01",
   personalInfo: {
     fullName: "",
     title: "",
@@ -167,8 +167,8 @@ export const DEFAULT_CV_DATA: CvLayoutData = {
     avatar: null,
   },
   theme: {
-    templateId: "standard-01",
-    fontFamily: "Inter",
+    templateId: "harvard-01",
+    fontFamily: "'Times New Roman', Times, serif",
     fontSize: "14px",
     lineHeight: 1.5,
     primaryColor: "#4f46e5",

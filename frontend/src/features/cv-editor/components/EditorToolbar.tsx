@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Loader2,
   Check,
@@ -6,10 +6,14 @@ import {
   Printer,
   LayoutTemplate,
   Globe,
+  Trash2,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCvStore } from "@/stores/useCvStore";
+import { cvService } from "@/services/cvService";
+import type { Cv } from "@/types/cv";
+import { toast } from "sonner";
 
 // Import trực tiếp file ngôn ngữ
 import vi from "@/locales/vi.json";
@@ -30,16 +34,56 @@ const stripHtml = (text: string): string => {
 };
 
 const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
+  const navigate = useNavigate();
+  const { id: routeCvId } = useParams<{ id: string }>();
+
   // Bổ sung setLanguage từ Store
-  const { data, updateTheme, name, updateCvName, saveChanges, setLanguage } =
-    useCvStore();
+  const {
+    data,
+    currentCvId,
+    updateTheme,
+    name,
+    updateCvName,
+    saveChanges,
+    setLanguage,
+  } = useCvStore();
+
   const [isPrinting, setIsPrinting] = useState(false);
+  const [cvList, setCvList] = useState<Cv[]>([]);
+  const [isCvListLoading, setIsCvListLoading] = useState(false);
+  const [isDeletingCurrent, setIsDeletingCurrent] = useState(false);
 
   if (!data) return null;
 
   // Logic chọn bộ từ điển dựa trên language trong store
   const currentLang = data.language || "vi";
   const t = currentLang === "en" ? en : vi;
+  const activeCvId = currentCvId || routeCvId || "";
+
+  const loadCvList = async () => {
+    setIsCvListLoading(true);
+    try {
+      const list = await cvService.list();
+      setCvList(list);
+    } catch (error) {
+      console.error("Lỗi tải danh sách CV:", error);
+      toast.error("Không thể tải danh sách CV.");
+    } finally {
+      setIsCvListLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCvList();
+  }, []);
+
+  useEffect(() => {
+    if (!activeCvId) return;
+    const exists = cvList.some((cv) => cv.id === activeCvId);
+    if (!exists) {
+      loadCvList();
+    }
+  }, [activeCvId]);
 
   const handleExportPdf = () => {
     setIsPrinting(true);
@@ -47,6 +91,37 @@ const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
       window.print();
       setIsPrinting(false);
     }, 500);
+  };
+
+  const handleSelectCv = (selectedCvId: string) => {
+    if (!selectedCvId || selectedCvId === activeCvId) return;
+    navigate(`/editor/${selectedCvId}`);
+  };
+
+  const handleDeleteCurrentCv = async () => {
+    if (!activeCvId) return;
+
+    const confirmed = window.confirm("Bạn có chắc muốn xóa CV hiện tại không?");
+    if (!confirmed) return;
+
+    setIsDeletingCurrent(true);
+    try {
+      await cvService.delete(activeCvId);
+      toast.success("Đã xóa CV hiện tại.");
+      const updatedList = cvList.filter((cv) => cv.id !== activeCvId);
+      setCvList(updatedList);
+
+      if (updatedList.length > 0) {
+        navigate(`/editor/${updatedList[0].id}`);
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("Lỗi xóa CV trong editor:", error);
+      toast.error("Không thể xóa CV hiện tại.");
+    } finally {
+      setIsDeletingCurrent(false);
+    }
   };
 
   return (
@@ -65,12 +140,51 @@ const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
 
         <div className="w-px h-6 bg-slate-200 shrink-0" />
 
+        <div className="flex items-center gap-2 shrink-0">
+          <select
+            value={activeCvId}
+            onChange={(e) => handleSelectCv(e.target.value)}
+            disabled={isCvListLoading}
+            className="text-[11px] bg-slate-50 border border-slate-200 text-slate-700 rounded-md px-2 py-1.5 font-bold outline-none hover:bg-slate-100 transition-all cursor-pointer min-w-[170px]"
+            title="Chọn CV để chỉnh sửa"
+            aria-label="Chọn CV để chỉnh sửa"
+          >
+            {isCvListLoading ? (
+              <option value={activeCvId || ""}>Đang tải danh sách CV...</option>
+            ) : (
+              cvList.map((cv) => (
+                <option key={cv.id} value={cv.id}>
+                  {(cv.name || "CV chưa đặt tên").replace(/<[^>]*>/g, "")}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+
+        <Button
+          onClick={handleDeleteCurrentCv}
+          disabled={isDeletingCurrent || !activeCvId}
+          variant="outline"
+          size="sm"
+          className="gap-1.5 h-8 px-2.5 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+          title="Xóa CV hiện tại"
+          aria-label="Xóa CV hiện tại"
+        >
+          {isDeletingCurrent ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="w-3.5 h-3.5" />
+          )}
+        </Button>
+
         {/* Bộ chọn Template */}
         <div className="flex items-center gap-2 shrink-0">
           <LayoutTemplate className="w-4 h-4 text-indigo-500" />
           <select
-            value={data.theme.templateId || "standard-01"}
+            value={data.theme.templateId || "harvard-01"}
             onChange={(e) => updateTheme({ templateId: e.target.value })}
+            title="Chọn mẫu CV"
+            aria-label="Chọn mẫu CV"
             className="text-[11px] bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-md px-2 py-1.5 font-black outline-none hover:bg-indigo-100 transition-all cursor-pointer uppercase tracking-tight"
           >
             {TEMPLATES.map((tmpl) => (
@@ -164,6 +278,7 @@ const EditorToolbar = ({ isSaving }: { isSaving: boolean }) => {
           </span>
         </Button>
       </div>
+
     </header>
   );
 };

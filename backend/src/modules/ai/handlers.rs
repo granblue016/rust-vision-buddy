@@ -6,6 +6,7 @@ use crate::modules::auth;
 use crate::shared::api_error::ApiError;
 use crate::shared::app_state::AppState;
 use axum::{extract::State, http::HeaderMap, Json};
+use serde_json::Value;
 
 // KHÔNG cần #[axum::debug_handler] nếu bạn chưa cài axum-macros
 pub async fn chat_assistant(
@@ -61,10 +62,30 @@ pub async fn chat_assistant(
             ApiError::Upstream("Lỗi kết nối AI".to_string())
         })?;
 
-    // 4. Lấy kết quả (Dùng Turbofish ::<GeminiResponse> để tránh lỗi type annotation)
-    let res_json = response.json::<GeminiResponse>().await.map_err(|e| {
-        eprintln!("🔥 Parse Error: {:?}", e);
-        ApiError::Upstream("Lỗi dữ liệu AI".to_string())
+    // 4. Đọc raw body để xử lý được cả response thành công và response lỗi từ Gemini.
+    let status = response.status();
+    let raw_body = response.text().await.map_err(|e| {
+        eprintln!("🔥 Read Body Error: {:?}", e);
+        ApiError::Upstream("Không đọc được dữ liệu phản hồi từ AI".to_string())
+    })?;
+
+    if !status.is_success() {
+        eprintln!("🔥 Gemini HTTP Error {}: {}", status, raw_body);
+        let message = serde_json::from_str::<Value>(&raw_body)
+            .ok()
+            .and_then(|v| {
+                v.get("error")
+                    .and_then(|e| e.get("message"))
+                    .and_then(|m| m.as_str().map(|s| s.to_string()))
+            })
+            .unwrap_or_else(|| "Gemini API trả về lỗi không xác định".to_string());
+
+        return Err(ApiError::Upstream(format!("Gemini API error: {}", message)));
+    }
+
+    let res_json = serde_json::from_str::<GeminiResponse>(&raw_body).map_err(|e| {
+        eprintln!("🔥 Parse Error: {:?}; body: {}", e, raw_body);
+        ApiError::Upstream("AI trả về dữ liệu không đúng định dạng mong đợi".to_string())
     })?;
 
     let reply = res_json

@@ -193,6 +193,7 @@ const translations: Translations = {
   "nav.cv.analysis": { vi: "Phân tích CV", en: "CV Analysis" },
   "nav.write.mail": { vi: "Viết Mail", en: "Write Mail" },
   "nav.write.cover": { vi: "Viết Cover Letter", en: "Write Cover Letter" },
+  "nav.create.cv": { vi: "Tạo CV", en: "Create CV" },
   // Write Mail page
   "writemail.title": { vi: "Viết Email ứng tuyển", en: "Write Application Email" },
   "writemail.desc": { vi: "Tạo email ứng tuyển chuyên nghiệp dựa trên CV và JD", en: "Generate professional application emails based on CV and JD" },
@@ -234,21 +235,31 @@ const LanguageContext = createContext<LanguageContextType>({
 
 export const useLanguage = () => useContext(LanguageContext);
 
+const normalizeLanguage = (value: string | null): Language => {
+  return value === "en" ? "en" : "vi";
+};
+
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguage] = useState<Language>(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("cvgenius-lang") as Language) || "vi";
+      return normalizeLanguage(localStorage.getItem("cvgenius-lang"));
     }
     return "vi";
   });
 
   const handleSetLanguage = (lang: Language) => {
-    setLanguage(lang);
-    localStorage.setItem("cvgenius-lang", lang);
+    const normalized = normalizeLanguage(lang);
+    setLanguage(normalized);
+    localStorage.setItem("cvgenius-lang", normalized);
   };
 
   const t = (key: string): string => {
-    return translations[key]?.[language] || key;
+    const entry = translations[key];
+    if (!entry) {
+      return key;
+    }
+
+    return entry[language] || entry.vi || entry.en || key;
   };
 
   return (

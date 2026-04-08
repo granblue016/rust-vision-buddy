@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type MouseEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Plus, FileText, Clock, Loader2 } from "lucide-react";
+import { Plus, FileText, Clock, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import { cvService } from "@/services/cvService";
@@ -18,6 +18,7 @@ const DashboardPage = () => {
   const [drafts, setDrafts] = useState<Cv[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [deletingCvId, setDeletingCvId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // 1. Lấy danh sách CV từ Backend
@@ -44,7 +45,7 @@ const DashboardPage = () => {
     try {
       const newCvRequest = {
         name: "CV mới chưa đặt tên",
-        templateId: "modern-01",
+        templateId: "harvard-01",
       };
 
       const response = await cvService.create(newCvRequest as any);
@@ -57,6 +58,25 @@ const DashboardPage = () => {
       alert("Không thể kết nối với Backend để tạo CV mới.");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleDeleteCv = async (event: MouseEvent<HTMLButtonElement>, cvId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const confirmed = window.confirm("Bạn có chắc muốn xóa CV này không?");
+    if (!confirmed) return;
+
+    setDeletingCvId(cvId);
+    try {
+      await cvService.delete(cvId);
+      setDrafts((prev) => prev.filter((cv) => cv.id !== cvId));
+    } catch (err) {
+      console.error("Lỗi khi xóa CV:", err);
+      alert("Không thể xóa CV. Vui lòng thử lại.");
+    } finally {
+      setDeletingCvId(null);
     }
   };
 
@@ -114,9 +134,23 @@ const DashboardPage = () => {
                 <div className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-elevated hover:border-accent/30 hover:-translate-y-0.5">
                   <div className="aspect-[210/160] bg-muted/50 border-b border-border flex items-center justify-center relative">
                     <FileText className="w-10 h-10 text-muted-foreground/40" />
+                    <button
+                      type="button"
+                      onClick={(event) => handleDeleteCv(event, cv.id)}
+                      disabled={deletingCvId === cv.id}
+                      className="absolute top-2 left-2 w-7 h-7 rounded-md bg-white/90 border border-border text-red-600 hover:bg-red-50 hover:border-red-200 flex items-center justify-center transition-colors disabled:opacity-60"
+                      title="Xóa CV"
+                      aria-label="Xóa CV"
+                    >
+                      {deletingCvId === cv.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                     <span className="absolute top-2 right-2 text-[10px] bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 font-medium uppercase">
                       {/* Sử dụng layoutData thay vì layout_data */}
-                      {cv.layoutData?.templateId?.replace("-", " ") || "Modern"}
+                      {cv.layoutData?.templateId?.replace("-", " ") || "Harvard"}
                     </span>
                   </div>
 

@@ -12,6 +12,19 @@ interface HeaderBlockProps {
   templateId?: string;
 }
 
+const resolveHeaderFontClass = (fontFamily?: string, isHarvard?: boolean): string => {
+  const normalized = (fontFamily || "").toLowerCase();
+  if (normalized.includes("times new roman")) return "cv-font-times";
+  if (normalized.includes("montserrat")) return "cv-font-montserrat";
+  if (normalized.includes("roboto")) return "cv-font-roboto";
+  if (normalized.includes("playfair")) return "cv-font-playfair";
+  if (normalized.includes("lora")) return "cv-font-lora";
+  if (normalized.includes("inter")) return "cv-font-inter";
+  if (normalized.includes("serif")) return "cv-font-serif";
+  if (normalized.includes("monospace")) return "cv-font-mono";
+  return isHarvard ? "cv-font-serif" : "cv-font-inter";
+};
+
 // Hàm làm sạch HTML và tránh lỗi XSS/Tràn text
 const safeClean = (html: string | undefined, fallback: string): string => {
   if (!html || html.trim() === "") return fallback;
@@ -30,24 +43,24 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = ({
 }) => {
   const storeData = useCvStore((state) => state.data);
   const updatePersonalInfo = useCvStore((state) => state.updatePersonalInfo);
+  const isHarvard = templateId.toLowerCase().includes("harvard");
 
   // VẤN ĐỀ 1 ĐÃ SỬA: Thêm Optional Chaining (?.) để tránh crash khi storeData bị null
   const info = isPreview ? propsInfo : storeData?.personalInfo;
   const theme = isPreview ? propsTheme : storeData?.theme;
   const primaryColor = propsColor || theme?.primaryColor || "#000000";
+  const headerFontClass = resolveHeaderFontClass(theme?.fontFamily, isHarvard);
 
   // Nếu chưa có dữ liệu info (đang tải), không render gì cả để tránh lỗi
   if (!info) return null;
 
-  const isHarvard = templateId.toLowerCase().includes("harvard");
-
   return (
     <header
       id="main-cv-header"
-      className={`flex flex-col items-center text-center w-full transition-all overflow-hidden ${
+      className={`flex flex-col items-center text-center w-full transition-all overflow-hidden ${headerFontClass} ${
         isHarvard
-          ? "space-y-1 pb-4 border-b border-slate-900 mb-6 font-serif"
-          : "space-y-3 pb-8 border-b-2 border-slate-100 mb-8 font-sans"
+          ? "space-y-1 pb-4 border-b border-slate-900 mb-6"
+          : "space-y-3 pb-8 border-b-2 border-slate-100 mb-8"
       }`}
     >
       {/* 1. HỌ TÊN */}

@@ -130,6 +130,7 @@ export const InlineRichText = ({
             <option value="default">Phông chữ</option>
             <option value="Inter">Inter</option>
             <option value="Roboto">Roboto</option>
+            <option value="'Times New Roman', Times, serif">Times New Roman</option>
             <option value="serif">Serif (Harvard)</option>
             <option value="monospace">Mono</option>
           </select>

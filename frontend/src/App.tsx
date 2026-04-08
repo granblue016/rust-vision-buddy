@@ -27,6 +27,7 @@ import WriteCoverLetterPage from "@/features/content-generation/pages/WriteCover
 // Components & Utils
 import ChatbotWidget from "@/components/ChatbotWidget";
 import ProtectedRoute from "@/shared/components/auth/ProtectedRoute";
+import WidgetErrorBoundary from "@/shared/components/system/WidgetErrorBoundary";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -74,7 +75,9 @@ const App = () => (
             </Routes>
 
             {/* Widget AI sẽ không hiển thị trên trang Preview nếu bạn xử lý logic ẩn trong chính component Chatbot */}
-            <ChatbotWidget />
+            <WidgetErrorBoundary>
+              <ChatbotWidget />
+            </WidgetErrorBoundary>
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>

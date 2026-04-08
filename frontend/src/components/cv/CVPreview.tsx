@@ -46,20 +46,22 @@ const CVPreview = forwardRef<HTMLDivElement, CVPreviewProps>((_props, ref) => {
    * Khớp templateId từ Store với các Component tương ứng
    */
   const renderSelectedTemplate = () => {
-    // Lấy templateId từ theme, mặc định là modern-01 nếu chưa có
-    const templateId = data.theme.templateId || "modern-01";
+    // Lấy templateId từ theme, mặc định là harvard-01 nếu chưa có
+    const templateId = data.theme.templateId || "harvard-01";
 
     switch (templateId) {
       case "harvard-01":
         return <HarvardTemplate data={data} isPreview={true} />;
       case "harvard-02":
         return <HarvardTemplate02 data={data} isPreview={true} />;
+      case "harvard":
       case "modern-01":
+      case "standard-01":
       case "standard": // Hỗ trợ fallback nếu id cũ là standard
         return <StandardTemplate data={data} isPreview={true} />;
       default:
-        // Nếu không khớp id nào, hiện template mặc định thay vì để trắng trang
-        return <StandardTemplate data={data} isPreview={true} />;
+        // Nếu không khớp id nào, fallback về Harvard mặc định
+        return <HarvardTemplate data={data} isPreview={true} />;
     }
   };
 

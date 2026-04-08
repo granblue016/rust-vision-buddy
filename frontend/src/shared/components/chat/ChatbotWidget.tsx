@@ -58,11 +58,20 @@ const ChatbotWidget = () => {
         history,
       });
 
+      const reply =
+        typeof response === "object" && response !== null && "data" in response
+          ? (response as { data?: { reply?: string } }).data?.reply
+          : (response as { reply?: string }).reply;
+
+      if (!reply || typeof reply !== "string") {
+        throw new Error("AI response format is invalid");
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: response.data.reply,
+          content: reply,
         },
       ]);
     } catch (error: any) {
@@ -149,9 +158,9 @@ const ChatbotWidget = () => {
                   </div>
                   <div className="bg-muted rounded-xl px-4 py-3">
                     <div className="flex gap-1">
-                      <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+                      <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+                      <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
                     </div>
                   </div>
                 </div>

@@ -1,0 +1,26 @@
+﻿[
+    {
+        "name":  "nlp-service",
+        "pid":  14760,
+        "workdir":  "C:\\Users\\d0ngle8k\\Desktop\\rust-vision-buddy\\nlp-service",
+        "startedAt":  "2026-04-08T15:41:26.9910841+07:00",
+        "stdout":  "C:\\Users\\d0ngle8k\\Desktop\\rust-vision-buddy\\.logs\\nlp-service.out.log",
+        "stderr":  "C:\\Users\\d0ngle8k\\Desktop\\rust-vision-buddy\\.logs\\nlp-service.err.log"
+    },
+    {
+        "name":  "backend",
+        "pid":  8772,
+        "workdir":  "C:\\Users\\d0ngle8k\\Desktop\\rust-vision-buddy\\backend",
+        "startedAt":  "2026-04-08T15:41:27.0087583+07:00",
+        "stdout":  "C:\\Users\\d0ngle8k\\Desktop\\rust-vision-buddy\\.logs\\backend.out.log",
+        "stderr":  "C:\\Users\\d0ngle8k\\Desktop\\rust-vision-buddy\\.logs\\backend.err.log"
+    },
+    {
+        "name":  "frontend",
+        "pid":  13448,
+        "workdir":  "C:\\Users\\d0ngle8k\\Desktop\\rust-vision-buddy\\frontend",
+        "startedAt":  "2026-04-08T15:41:27.0214441+07:00",
+        "stdout":  "C:\\Users\\d0ngle8k\\Desktop\\rust-vision-buddy\\.logs\\frontend.out.log",
+        "stderr":  "C:\\Users\\d0ngle8k\\Desktop\\rust-vision-buddy\\.logs\\frontend.err.log"
+    }
+]

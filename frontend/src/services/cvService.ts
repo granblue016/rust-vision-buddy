@@ -3,15 +3,16 @@ import { Cv, CreateCvRequest, UpdateCvRequest } from "../types/cv";
 /**
  * Cấu hình URL cho Backend Rust.
  */
-const BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
+const BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:9000";
 const API_URL = `${BASE_URL}/api/v1/cvs`;
+const TOKEN_KEY = "career-compass-token";
 
 /**
  * Hàm hỗ trợ lấy Headers bảo mật và cấu hình Content-Type.
  * Đảm bảo Authorization luôn được đính kèm nếu có token.
  */
 const getHeaders = (isPostOrPut = true): HeadersInit => {
-  const token = localStorage.getItem("auth_token");
+  const token = localStorage.getItem(TOKEN_KEY);
   const headers: Record<string, string> = {
     Accept: "application/json",
   };
@@ -109,7 +110,7 @@ export const cvService = {
    * Giải pháp cho lỗi 500/Timeout 22s.
    */
   async exportPdf(id: string): Promise<Blob> {
-    const token = localStorage.getItem("auth_token");
+    const token = localStorage.getItem(TOKEN_KEY);
 
     // QUAN TRỌNG: Gửi token qua Query Param để Backend dùng token này
     // truy cập vào trang Preview mà không bị Middleware chặn lại.

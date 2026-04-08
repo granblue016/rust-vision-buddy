@@ -10,7 +10,10 @@ export const CreateCvButton = () => {
     try {
       setLoading(true);
       // Gọi API tạo CV mới (Khớp với backend Rust của bạn)
-      const result = await cvService.create({ name: "CV Mới của tôi" });
+      const result = await cvService.create({
+        name: "CV Mới của tôi",
+        templateId: "harvard-01",
+      });
 
       // Chuyển hướng sang trang chỉnh sửa (chúng ta sẽ tạo route này sau)
       navigate(`/editor/${result.id}`);

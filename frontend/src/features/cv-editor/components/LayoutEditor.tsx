@@ -59,7 +59,7 @@ const LayoutEditor = () => {
 
   if (!data) return null;
 
-  const templateId = data.theme.templateId || "standard-01";
+  const templateId = data.theme.templateId || "harvard-01";
   const { isHarvard, isModern, isStandard } = useMemo(
     () => getTemplateType(templateId),
     [templateId],

@@ -160,6 +160,30 @@
     .text-score-high {
         color: hsl(var(--score-high));
     }
+    .cv-font-inter {
+        font-family: Inter, sans-serif;
+    }
+    .cv-font-roboto {
+        font-family: Roboto, sans-serif;
+    }
+    .cv-font-montserrat {
+        font-family: Montserrat, sans-serif;
+    }
+    .cv-font-times {
+        font-family: "Times New Roman", Times, serif;
+    }
+    .cv-font-lora {
+        font-family: Lora, serif;
+    }
+    .cv-font-playfair {
+        font-family: "Playfair Display", serif;
+    }
+    .cv-font-serif {
+        font-family: serif;
+    }
+    .cv-font-mono {
+        font-family: monospace;
+    }
 }
 
 /* --- CẤU HÌNH IN ẤN (PDF EXPORT) --- */

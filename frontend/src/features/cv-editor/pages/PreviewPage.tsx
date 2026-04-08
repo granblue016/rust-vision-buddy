@@ -42,7 +42,7 @@ const PreviewPage: React.FC = () => {
       // Xử lý token từ URL (nếu có) để duy trì session cho Headless Chrome
       const token = searchParams.get("t");
       if (token) {
-        localStorage.setItem("auth_token", token);
+        localStorage.setItem("career-compass-token", token);
       }
 
       try {

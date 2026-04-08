@@ -173,7 +173,7 @@ pub struct Cv {
 // --- 4. HELPERS ---
 
 fn default_font_family() -> String {
-    "Inter".into()
+    "'Times New Roman', Times, serif".into()
 }
 fn default_font_size() -> String {
     "14px".into()
@@ -185,7 +185,7 @@ fn default_primary_color() -> String {
     "#4f46e5".into()
 }
 fn default_template_id() -> String {
-    "modern-01".into()
+    "harvard-01".into()
 }
 fn default_visible() -> bool {
     true

@@ -17,7 +17,7 @@ const Navbar = () => {
     { label: t("nav.cv.analysis"), path: "/solution", icon: BarChart3 },
     { label: t("nav.write.mail"), path: "/write-mail", icon: Mail },
     { label: t("nav.write.cover"), path: "/write-cover-letter", icon: FileText },
-    { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+    { label: t("nav.create.cv"), path: "/dashboard", icon: LayoutDashboard },
   ];
 
   const isSolutionActive = ["/solution", "/write-mail", "/write-cover-letter", "/dashboard"].includes(location.pathname);

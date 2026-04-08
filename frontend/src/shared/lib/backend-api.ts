@@ -46,7 +46,16 @@ const request = async <T>(path: string, init: RequestInit = {}, token?: string):
     headers,
   });
 
-  const json = await response.json();
+  const rawText = await response.text();
+  let json: unknown = null;
+
+  if (rawText) {
+    try {
+      json = JSON.parse(rawText);
+    } catch {
+      json = rawText;
+    }
+  }
 
   if (!response.ok) {
     // If 401 Unauthorized, clear token from localStorage and redirect to login
@@ -56,7 +65,15 @@ const request = async <T>(path: string, init: RequestInit = {}, token?: string):
       // Dispatch custom event so AuthContext can listen and update
       window.dispatchEvent(new Event("auth:unauthorized"));
     }
-    throw new Error(json.error || "Request failed");
+
+    const errorMessage =
+      typeof json === "object" && json !== null && "error" in json
+        ? String((json as { error: unknown }).error)
+        : typeof json === "string" && json.trim().length > 0
+          ? json
+          : `Request failed (${response.status})`;
+
+    throw new Error(errorMessage);
   }
 
   return json as T;
@@ -124,7 +141,7 @@ export const backendApi = {
       history?: ChatMessage[];
     },
   ) {
-    return request<ApiEnvelope<{ reply: string }>>(
+    return request<ApiEnvelope<{ reply: string }> | { reply: string }>(
       "/api/v1/ai/chat-assistant",
       {
         method: "POST",

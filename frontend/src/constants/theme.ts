@@ -6,6 +6,7 @@ export const FONT_OPTIONS = [
   { id: "font-inter", label: "Inter (Mặc định)", value: "Inter, sans-serif" },
   { id: "font-roboto", label: "Roboto", value: "Roboto, sans-serif" },
   { id: "font-montserrat", label: "Montserrat", value: "Montserrat, sans-serif" },
+  { id: "font-times", label: "Times New Roman", value: "'Times New Roman', Times, serif" },
   { id: "font-lora", label: "Lora (Có chân)", value: "Lora, serif" },
   { id: "font-playfair", label: "Playfair Display", value: "Playfair Display, serif" },
   { id: "font-system", label: "Hệ thống", value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },

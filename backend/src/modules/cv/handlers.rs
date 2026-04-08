@@ -10,7 +10,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use tracing::{error, info};
+use tracing::error;
 use uuid::Uuid;
 
 pub async fn create_cv(
@@ -19,12 +19,13 @@ pub async fn create_cv(
 ) -> Result<(StatusCode, Json<CvResponse>), StatusCode> {
     let user_id = Uuid::nil();
     let cv_id = Uuid::new_v4();
+    let selected_template_id = payload
+        .template_id
+        .unwrap_or_else(|| "harvard-01".to_string());
 
     // KHỞI TẠO DỮ LIỆU MẪU THEO ĐÚNG MODELS.RS
     let default_layout = CvLayoutData {
-        template_id: payload
-            .template_id
-            .unwrap_or_else(|| "modern-01".to_string()),
+        template_id: selected_template_id.clone(),
         personal_info: PersonalInfo {
             full_name: "NGUYỄN VĂN ABCDEFFFG".into(),
             title: "FULLSTACK DEVELOPERRRRR".into(),
@@ -34,7 +35,10 @@ pub async fn create_cv(
             website: "github.com/nguyenvana".into(),
             avatar: None,
         },
-        theme: CvTheme::default(),
+        theme: CvTheme {
+            template_id: selected_template_id,
+            ..CvTheme::default()
+        },
         sections: vec![
             CvSection {
                 id: "section-header".into(),
@@ -106,13 +110,15 @@ pub async fn create_cv(
             },
         ],
         layout: CvLayoutState {
-            full_width: vec!["section-header".into()],
-            left_column: vec!["section-skills".into()],
-            right_column: vec![
+            full_width: vec![
+                "section-header".into(),
+                "section-skills".into(),
                 "section-summary".into(),
                 "section-exp".into(),
                 "section-edu".into(),
             ],
+            left_column: vec![],
+            right_column: vec![],
             unused: vec![],
         },
     };
